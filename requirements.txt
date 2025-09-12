@@ -1,13 +1,27 @@
-Django>=4.2.0,<5.0.0
-djangorestframework>=3.14.0
-django-cors-headers>=4.0.0
-djangorestframework-simplejwt>=5.2.0
-psycopg2-binary>=2.9.0
-python-decouple>=3.6
-django-extensions>=3.2.0
-dj-database-url>=2.0.0
-Pillow>=9.5.0
-celery>=5.2.0
-redis>=4.5.0
-django-filter>=23.0.0
-drf-spectacular>=0.26.0
+# Core Django
+Django==4.2.24
+djangorestframework==3.16.1
+djangorestframework_simplejwt==5.5.1
+
+# Database
+psycopg2-binary==2.9.10
+dj-database-url==3.0.1
+
+# Configuration
+python-decouple==3.8
+
+# CORS
+django-cors-headers==4.8.0
+
+# Filtering and Extensions
+django-filter==25.1
+django-extensions==4.1
+
+# API Documentation
+drf-spectacular==0.28.0
+
+# Image handling
+Pillow==11.3.0
+
+# Production server
+gunicorn==23.0.0
