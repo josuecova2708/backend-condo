@@ -93,7 +93,11 @@ WSGI_APPLICATION = 'smart_condo_project.wsgi.application'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
 DATABASES = {
-    'default': dj_database_url.parse(config('DATABASE_URL', default='sqlite:///db.sqlite3'))
+    'default': dj_database_url.config(
+        default=config('DATABASE_URL', default='sqlite:///db.sqlite3'),
+        conn_max_age=600,
+        ssl_require=True
+    )
 }
 
 
