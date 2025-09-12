@@ -65,8 +65,14 @@ def logout(request):
         # Obtener el refresh token del request
         refresh_token = request.data.get('refresh')
         if refresh_token:
-            token = RefreshToken(refresh_token)
-            token.blacklist()
+            try:
+                token = RefreshToken(refresh_token)
+                # Intentar blacklist solo si está disponible
+                if hasattr(token, 'blacklist'):
+                    token.blacklist()
+            except Exception:
+                # Si hay error con blacklist, continuar con el logout normal
+                pass
         
         # Actualizar sesión
         try:
@@ -87,7 +93,7 @@ def logout(request):
         
     except Exception as e:
         return Response({
-            'error': 'Error al cerrar sesión'
+            'error': f'Error al cerrar sesión: {str(e)}'
         }, status=status.HTTP_400_BAD_REQUEST)
 
 

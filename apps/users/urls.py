@@ -4,11 +4,22 @@ from apps.users.views import UserViewSet, RoleViewSet, PermissionViewSet
 
 app_name = 'users'
 
-router = DefaultRouter()
-router.register(r'', UserViewSet, basename='user')
-router.register(r'roles', RoleViewSet, basename='role')
-router.register(r'permissions', PermissionViewSet, basename='permission')
+# Router para usuarios (conflictúa con otras rutas)
+user_router = DefaultRouter()
+user_router.register(r'manage', UserViewSet, basename='user')
+
+# Router para roles
+role_router = DefaultRouter()  
+role_router.register(r'', RoleViewSet, basename='role')
+
+# Router para permisos
+permission_router = DefaultRouter()
+permission_router.register(r'', PermissionViewSet, basename='permission')
 
 urlpatterns = [
-    path('', include(router.urls)),
+    # Rutas específicas primero
+    path('roles/', include(role_router.urls)),
+    path('permissions/', include(permission_router.urls)),
+    # Usuario management en ruta separada para evitar conflictos
+    path('', include(user_router.urls)),
 ]
