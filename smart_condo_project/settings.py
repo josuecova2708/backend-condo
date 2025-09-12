@@ -197,10 +197,8 @@ SIMPLE_JWT = {
 }
 
 # CORS Configuration
-#CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='').split(',')
-# ...existing code...
-CORS_ALLOW_ALL_ORIGINS = True  # Solo para pruebas, luego elimínalo
-# ...existing code...
+CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='').split(',')
+CORS_ALLOW_ALL_ORIGINS = config('CORS_ALLOW_ALL_ORIGINS', default=False, cast=bool)
 CORS_ALLOW_CREDENTIALS = True
 
 # DRF Spectacular Configuration (API Documentation)
