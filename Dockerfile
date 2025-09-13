@@ -25,8 +25,11 @@ COPY . .
 # Create staticfiles directory
 RUN mkdir -p staticfiles
 
+# Make start script executable
+RUN chmod +x start.sh
+
 # Expose port (Railway will override this with $PORT)
 EXPOSE $PORT
 
-# Start command - collectstatic moved to runtime when env vars are available
-CMD ["sh", "-c", "python manage.py migrate && python manage.py collectstatic --noinput && gunicorn smart_condo_project.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 2 --timeout 120 --access-logfile - --error-logfile -"]
+# Use start script
+CMD ["./start.sh"]
