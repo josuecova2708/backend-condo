@@ -272,8 +272,30 @@ CORS_EXPOSE_HEADERS = [
 # Configuraciones adicionales para preflight requests
 CORS_PREFLIGHT_MAX_AGE = 86400  # 24 horas
 
-# Configuraciones adicionales para Railway
-# CORS_REPLACE_HTTPS_REFERER removido en versiones recientes de django-cors-headers
+# =============================================================================
+# SECURITY SETTINGS PARA RAILWAY PRODUCTION
+# =============================================================================
+
+# HTTPS y SSL
+SECURE_SSL_REDIRECT = not DEBUG
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# Security Headers
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'DENY'
+
+# HSTS (solo en producción)
+if not DEBUG:
+    SECURE_HSTS_SECONDS = 31536000  # 1 año
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+
+# Cookies seguros en producción
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = True
 
 # DRF Spectacular Configuration (API Documentation)
 SPECTACULAR_SETTINGS = {
