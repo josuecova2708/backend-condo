@@ -200,6 +200,12 @@ SIMPLE_JWT = {
 # Configurar CORS desde variables de entorno con valores por defecto
 CORS_ALLOW_ALL_ORIGINS = config('CORS_ALLOW_ALL_ORIGINS', default=DEBUG, cast=bool)
 
+# Configuraciones específicas para Railway
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https://.*\.vercel\.app$",
+    r"^https://.*\.railway\.app$",
+]
+
 if not CORS_ALLOW_ALL_ORIGINS:
     # Si no se permite todo, usar lista específica
     default_origins = [
@@ -231,6 +237,7 @@ CORS_ALLOW_HEADERS = [
     'x-requested-with',
     'cache-control',
     'x-file-name',
+    'access-control-allow-origin',
 ]
 
 # Métodos HTTP permitidos
@@ -247,10 +254,14 @@ CORS_ALLOW_METHODS = [
 CORS_EXPOSE_HEADERS = [
     'Content-Type',
     'X-CSRFToken',
+    'Access-Control-Allow-Origin',
 ]
 
 # Configuraciones adicionales para preflight requests
 CORS_PREFLIGHT_MAX_AGE = 86400  # 24 horas
+
+# Configuraciones adicionales para Railway
+CORS_REPLACE_HTTPS_REFERER = True
 
 # DRF Spectacular Configuration (API Documentation)
 SPECTACULAR_SETTINGS = {
