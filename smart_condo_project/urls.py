@@ -18,21 +18,33 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.http import JsonResponse
 from drf_spectacular.views import (
     SpectacularAPIView,
     SpectacularRedocView,
     SpectacularSwaggerView,
 )
 
+def health_check(request):
+    """Simple health check endpoint for testing CORS"""
+    return JsonResponse({
+        'status': 'ok',
+        'message': 'Backend is running',
+        'cors_enabled': True
+    })
+
 urlpatterns = [
+    # Health check
+    path('api/health/', health_check, name='health_check'),
+
     # Admin
     path('admin/', admin.site.urls),
-    
+
     # API Documentation
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/swagger/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
-    
+
     # API endpoints
     path('api/auth/', include('apps.authentication.urls')),
     path('api/users/', include('apps.users.urls')),
