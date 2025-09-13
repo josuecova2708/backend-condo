@@ -206,6 +206,11 @@ CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https://.*\.railway\.app$",
 ]
 
+# Agregar dominio específico de Vercel
+CORS_ALLOWED_ORIGINS_VERCEL = [
+    "https://frontend-condo.vercel.app",
+]
+
 if not CORS_ALLOW_ALL_ORIGINS:
     # Si no se permite todo, usar lista específica
     default_origins = [
@@ -214,10 +219,15 @@ if not CORS_ALLOW_ALL_ORIGINS:
         "https://localhost:3000",
     ]
 
+    # Combinar con dominios de Vercel
+    default_origins.extend(CORS_ALLOWED_ORIGINS_VERCEL)
+
     env_origins = config('CORS_ALLOWED_ORIGINS', default='')
     if env_origins:
         # Limpiar y dividir las origins desde variables de entorno
         cors_origins = [origin.strip() for origin in env_origins.split(',') if origin.strip()]
+        # Agregar también los dominios de Vercel
+        cors_origins.extend(CORS_ALLOWED_ORIGINS_VERCEL)
         CORS_ALLOWED_ORIGINS = cors_origins
     else:
         CORS_ALLOWED_ORIGINS = default_origins
@@ -261,7 +271,7 @@ CORS_EXPOSE_HEADERS = [
 CORS_PREFLIGHT_MAX_AGE = 86400  # 24 horas
 
 # Configuraciones adicionales para Railway
-CORS_REPLACE_HTTPS_REFERER = True
+# CORS_REPLACE_HTTPS_REFERER removido en versiones recientes de django-cors-headers
 
 # DRF Spectacular Configuration (API Documentation)
 SPECTACULAR_SETTINGS = {
