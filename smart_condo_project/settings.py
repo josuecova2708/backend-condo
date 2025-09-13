@@ -197,9 +197,60 @@ SIMPLE_JWT = {
 }
 
 # CORS Configuration
-CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='').split(',')
-CORS_ALLOW_ALL_ORIGINS = config('CORS_ALLOW_ALL_ORIGINS', default=False, cast=bool)
+# Configurar CORS desde variables de entorno con valores por defecto
+CORS_ALLOW_ALL_ORIGINS = config('CORS_ALLOW_ALL_ORIGINS', default=DEBUG, cast=bool)
+
+if not CORS_ALLOW_ALL_ORIGINS:
+    # Si no se permite todo, usar lista específica
+    default_origins = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "https://localhost:3000",
+    ]
+
+    env_origins = config('CORS_ALLOWED_ORIGINS', default='')
+    if env_origins:
+        # Limpiar y dividir las origins desde variables de entorno
+        cors_origins = [origin.strip() for origin in env_origins.split(',') if origin.strip()]
+        CORS_ALLOWED_ORIGINS = cors_origins
+    else:
+        CORS_ALLOWED_ORIGINS = default_origins
+
 CORS_ALLOW_CREDENTIALS = True
+
+# Headers permitidos en requests CORS
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+    'cache-control',
+    'x-file-name',
+]
+
+# Métodos HTTP permitidos
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+
+# Headers que se expondrán al frontend
+CORS_EXPOSE_HEADERS = [
+    'Content-Type',
+    'X-CSRFToken',
+]
+
+# Configuraciones adicionales para preflight requests
+CORS_PREFLIGHT_MAX_AGE = 86400  # 24 horas
 
 # DRF Spectacular Configuration (API Documentation)
 SPECTACULAR_SETTINGS = {
