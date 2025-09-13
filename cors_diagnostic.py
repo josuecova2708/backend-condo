@@ -13,7 +13,7 @@ FRONTEND_URL = "https://frontend-condo.vercel.app"
 
 def test_preflight_options():
     """Test preflight OPTIONS request"""
-    print("🧪 Testing preflight OPTIONS request...")
+    print("Testing preflight OPTIONS request...")
 
     headers = {
         'Origin': FRONTEND_URL,
@@ -47,19 +47,19 @@ def test_preflight_options():
                 missing_headers.append(header)
 
         if missing_headers:
-            print(f"❌ Missing headers: {missing_headers}")
+            print(f"MISSING headers: {missing_headers}")
         else:
-            print("✅ All critical CORS headers present")
+            print("All critical CORS headers present")
 
         return response
 
     except Exception as e:
-        print(f"❌ Preflight test failed: {e}")
+        print(f"Preflight test failed: {e}")
         return None
 
 def test_actual_request():
     """Test actual POST request"""
-    print("\n🧪 Testing actual POST request...")
+    print("\nTesting actual POST request...")
 
     headers = {
         'Origin': FRONTEND_URL,
@@ -88,25 +88,25 @@ def test_actual_request():
         return response
 
     except Exception as e:
-        print(f"❌ Actual request test failed: {e}")
+        print(f"Actual request test failed: {e}")
         return None
 
 def test_health_endpoint():
     """Test health endpoint (usually doesn't require CORS)"""
-    print("\n🧪 Testing health endpoint...")
+    print("\nTesting health endpoint...")
 
     try:
         response = requests.get(f"{BACKEND_URL}/", timeout=10)
         print(f"Health check status: {response.status_code}")
         if response.status_code == 200:
-            print("✅ Backend is alive")
+            print("Backend is alive")
         return response
     except Exception as e:
-        print(f"❌ Health check failed: {e}")
+        print(f"Health check failed: {e}")
         return None
 
 def main():
-    print("🚀 CORS Diagnostic Tool - Railway + Vercel")
+    print("CORS Diagnostic Tool - Railway + Vercel")
     print("=" * 50)
     print(f"Backend: {BACKEND_URL}")
     print(f"Frontend: {FRONTEND_URL}")
@@ -122,30 +122,30 @@ def main():
     actual_response = test_actual_request()
 
     print("\n" + "=" * 50)
-    print("📊 SUMMARY")
+    print("SUMMARY")
     print("=" * 50)
 
     if health_response and health_response.status_code == 200:
-        print("✅ Backend is reachable")
+        print("Backend is reachable")
     else:
-        print("❌ Backend is not reachable")
+        print("Backend is not reachable")
 
     if preflight_response and preflight_response.status_code == 200:
-        print("✅ Preflight request successful")
+        print("Preflight request successful")
     else:
-        print("❌ Preflight request failed")
+        print("Preflight request failed")
 
     if actual_response:
         if actual_response.status_code in [200, 400, 401]:  # 400/401 are OK for CORS (auth might fail)
-            print("✅ Actual request reaches backend (CORS working)")
+            print("Actual request reaches backend (CORS working)")
         else:
-            print(f"❌ Actual request failed with status {actual_response.status_code}")
+            print(f"Actual request failed with status {actual_response.status_code}")
     else:
-        print("❌ Actual request completely failed")
+        print("Actual request completely failed")
 
     # Instructions
     print("\n" + "=" * 50)
-    print("🔧 NEXT STEPS")
+    print("NEXT STEPS")
     print("=" * 50)
 
     if not preflight_response or preflight_response.status_code != 200:

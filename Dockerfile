@@ -29,4 +29,4 @@ RUN mkdir -p staticfiles
 EXPOSE $PORT
 
 # Start command - collectstatic moved to runtime when env vars are available
-CMD python manage.py migrate && python manage.py collectstatic --noinput && gunicorn smart_condo_project.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120 --access-logfile - --error-logfile -
+CMD ["sh", "-c", "python manage.py migrate && python manage.py collectstatic --noinput && gunicorn smart_condo_project.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 2 --timeout 120 --access-logfile - --error-logfile -"]
