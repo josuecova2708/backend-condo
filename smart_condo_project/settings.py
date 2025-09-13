@@ -30,6 +30,15 @@ DEBUG = config('DEBUG', default=False, cast=bool)
 
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='').split(',')
 
+# CSRF Trusted Origins for Railway/Vercel (CRÍTICO)
+CSRF_TRUSTED_ORIGINS = [
+    'https://backend-condo-production.up.railway.app',
+    'https://frontend-condo.vercel.app',
+    'https://frontend-condo-kyhyfxk53-josue-covarrubias-projects.vercel.app',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+]
+
 
 # Application definition
 
@@ -196,45 +205,34 @@ SIMPLE_JWT = {
     'JTI_CLAIM': 'jti',
 }
 
-# CORS Configuration
-# Configurar CORS desde variables de entorno con valores por defecto
-CORS_ALLOW_ALL_ORIGINS = config('CORS_ALLOW_ALL_ORIGINS', default=DEBUG, cast=bool)
+# =============================================================================
+# CORS CONFIGURATION OPTIMIZADA PARA RAILWAY + VERCEL
+# =============================================================================
 
-# Configuraciones específicas para Railway
+# En producción, usar lista específica de origins (más seguro que CORS_ALLOW_ALL_ORIGINS)
+CORS_ALLOW_ALL_ORIGINS = False  # Siempre False en producción
+
+# Origins específicos permitidos
+CORS_ALLOWED_ORIGINS = [
+    # Production
+    'https://frontend-condo.vercel.app',
+    'https://frontend-condo-kyhyfxk53-josue-covarrubias-projects.vercel.app',
+    # Development
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'https://localhost:3000',
+]
+
+# Regex patterns para preview deployments de Vercel
 CORS_ALLOWED_ORIGIN_REGEXES = [
-    r"^https://.*\.vercel\.app$",
-    r"^https://.*\.railway\.app$",
+    r'^https://frontend-condo-.*\.vercel\.app$',  # Preview deployments
+    r'^https://.*\.railway\.app$',
 ]
 
-# Agregar dominio específico de Vercel
-CORS_ALLOWED_ORIGINS_VERCEL = [
-    "https://frontend-condo.vercel.app",
-]
-
-if not CORS_ALLOW_ALL_ORIGINS:
-    # Si no se permite todo, usar lista específica
-    default_origins = [
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "https://localhost:3000",
-    ]
-
-    # Combinar con dominios de Vercel
-    default_origins.extend(CORS_ALLOWED_ORIGINS_VERCEL)
-
-    env_origins = config('CORS_ALLOWED_ORIGINS', default='')
-    if env_origins:
-        # Limpiar y dividir las origins desde variables de entorno
-        cors_origins = [origin.strip() for origin in env_origins.split(',') if origin.strip()]
-        # Agregar también los dominios de Vercel
-        cors_origins.extend(CORS_ALLOWED_ORIGINS_VERCEL)
-        CORS_ALLOWED_ORIGINS = cors_origins
-    else:
-        CORS_ALLOWED_ORIGINS = default_origins
-
+# Permitir cookies y headers de autenticación
 CORS_ALLOW_CREDENTIALS = True
 
-# Headers permitidos en requests CORS
+# Headers permitidos en requests CORS (incluye todos los necesarios para JWT)
 CORS_ALLOW_HEADERS = [
     'accept',
     'accept-encoding',
@@ -248,6 +246,9 @@ CORS_ALLOW_HEADERS = [
     'cache-control',
     'x-file-name',
     'access-control-allow-origin',
+    'x-forwarded-for',
+    'x-forwarded-proto',
+    'x-real-ip',
 ]
 
 # Métodos HTTP permitidos
@@ -265,6 +266,7 @@ CORS_EXPOSE_HEADERS = [
     'Content-Type',
     'X-CSRFToken',
     'Access-Control-Allow-Origin',
+    'Authorization',
 ]
 
 # Configuraciones adicionales para preflight requests
