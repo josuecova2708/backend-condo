@@ -82,9 +82,76 @@ class UnidadHabitacionalViewSet(viewsets.ModelViewSet):
         unidad = self.get_object()
         unidad.is_active = not unidad.is_active
         unidad.save()
-        
+
         serializer = self.get_serializer(unidad)
         return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def map_layout(self, request):
+        """
+        Obtener el layout del mapa con las unidades organizadas por bloques
+        """
+        unidades = self.get_queryset().select_related('bloque')
+
+        # Organizar unidades por bloque
+        bloques_data = {}
+        for unidad in unidades:
+            bloque_nombre = unidad.bloque.nombre if unidad.bloque else 'Sin Bloque'
+            if bloque_nombre not in bloques_data:
+                bloques_data[bloque_nombre] = {
+                    'nombre': bloque_nombre,
+                    'unidades': []
+                }
+
+            # Serializar unidad individual
+            unidad_data = {
+                'id': unidad.id,
+                'numero': unidad.numero,
+                'tipo': unidad.tipo,
+                'is_active': unidad.is_active,
+                'area_m2': unidad.area_m2,
+                'piso': unidad.piso,
+                'num_habitaciones': unidad.num_habitaciones,
+                'num_banos': unidad.num_banos,
+                'tiene_balcon': unidad.tiene_balcon,
+                'tiene_parqueadero': unidad.tiene_parqueadero,
+            }
+            bloques_data[bloque_nombre]['unidades'].append(unidad_data)
+
+        # Configuración del mapa según las especificaciones
+        map_config = {
+            'bloques': {
+                'A': {
+                    'unidades_numeros': [9, 10],
+                    'color': '#4CAF50',
+                    'position': {'x': 950, 'y': 200}
+                },
+                'B': {
+                    'unidades_numeros': [1, 2, 3, 4],
+                    'color': '#2196F3',
+                    'position': {'x': 50, 'y': 100}
+                },
+                'C': {
+                    'unidades_numeros': [5, 6, 7, 8, 11, 12, 13, 14],
+                    'color': '#FF9800',
+                    'position': {'x': 400, 'y': 300}
+                }
+            },
+            'areas_comunes': [
+                {'nombre': 'Área Social', 'coordenadas': {'x': 400, 'y': 50}, 'width': 350, 'height': 80},
+                {'nombre': 'Piscina', 'coordenadas': {'x': 400, 'y': 450}, 'width': 120, 'height': 80},
+                {'nombre': 'Parque', 'coordenadas': {'x': 200, 'y': 450}, 'width': 100, 'height': 80},
+                {'nombre': 'Parque', 'coordenadas': {'x': 600, 'y': 450}, 'width': 100, 'height': 80},
+                {'nombre': 'Parqueo Visita', 'coordenadas': {'x': 900, 'y': 50}, 'width': 200, 'height': 120},
+                {'nombre': 'Tienda', 'coordenadas': {'x': 100, 'y': 650}, 'width': 80, 'height': 40},
+                {'nombre': 'Tienda', 'coordenadas': {'x': 800, 'y': 650}, 'width': 80, 'height': 40}
+            ]
+        }
+
+        return Response({
+            'map_config': map_config,
+            'bloques_data': bloques_data
+        })
 
 
 class PropietarioViewSet(viewsets.ModelViewSet):
