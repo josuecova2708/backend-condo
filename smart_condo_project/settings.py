@@ -289,8 +289,8 @@ CORS_PREFLIGHT_MAX_AGE = 86400  # 24 horas
 # SECURITY SETTINGS PARA RAILWAY PRODUCTION
 # =============================================================================
 
-# HTTPS y SSL
-SECURE_SSL_REDIRECT = not DEBUG
+# HTTPS y SSL - Desactivar redirect para Railway health check
+SECURE_SSL_REDIRECT = False  # Railway health check usa HTTP
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Security Headers

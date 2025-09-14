@@ -26,7 +26,14 @@ from drf_spectacular.views import (
 )
 
 def health_check(request):
-    """Simple health check endpoint for testing CORS"""
+    """Health check endpoint optimizado para Railway"""
+    from django.http import HttpResponse
+
+    # Para Railway health check, usar HttpResponse simple y rápido
+    if request.META.get('HTTP_USER_AGENT', '').startswith('RailwayHealthCheck'):
+        return HttpResponse('OK', status=200, content_type='text/plain')
+
+    # Para otros casos, usar JsonResponse
     return JsonResponse({
         'status': 'ok',
         'message': 'Backend is running',
