@@ -45,6 +45,7 @@ urlpatterns = [
     path('', health_check, name='root_health_check'),
     path('health/', health_check, name='health_check_alt'),
     path('api/health/', health_check, name='health_check'),
+    path('api/debug/', health_check, name='api_debug'),  # Diagnóstico para API paths
 
     # Admin
     path('admin/', admin.site.urls),
