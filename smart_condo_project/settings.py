@@ -28,7 +28,19 @@ SECRET_KEY = config('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=False, cast=bool)
 
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='').split(',')
+# Parse ALLOWED_HOSTS from environment
+allowed_hosts_from_env = config('ALLOWED_HOSTS', default='').split(',')
+# Railway health check and internal hosts
+railway_hosts = [
+    'healthcheck.railway.app',
+    '*.railway.app',
+    'backend-condo.railway.internal',
+    '*.railway.internal',
+    '127.0.0.1',
+    'localhost'
+]
+# Combine all hosts and filter empty strings
+ALLOWED_HOSTS = [host.strip() for host in allowed_hosts_from_env + railway_hosts if host.strip()]
 
 # CSRF Trusted Origins for Railway/Vercel (CRÍTICO)
 CSRF_TRUSTED_ORIGINS = [
