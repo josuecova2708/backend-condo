@@ -41,7 +41,6 @@ class Bloque(TimeStampedModel):
     condominio = models.ForeignKey(Condominio, on_delete=models.CASCADE, related_name='bloques')
     nombre = models.CharField(max_length=100)
     descripcion = models.TextField(blank=True)
-    numero_pisos = models.PositiveIntegerField()
     is_active = models.BooleanField(default=True)
 
     class Meta:

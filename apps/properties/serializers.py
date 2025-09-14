@@ -13,8 +13,8 @@ class UnidadHabitacionalSerializer(serializers.ModelSerializer):
         model = UnidadHabitacional
         fields = [
             'id', 'bloque', 'bloque_nombre', 'condominio_nombre',
-            'numero', 'piso', 'tipo', 'area_m2', 'num_habitaciones',
-            'num_banos', 'tiene_balcon', 'tiene_parqueadero',
+            'numero', 'area_m2', 'num_habitaciones',
+            'num_banos', 'tiene_parqueadero',
             'observaciones', 'is_active', 'direccion_completa',
             'created_at', 'updated_at'
         ]
@@ -24,8 +24,8 @@ class UnidadHabitacionalCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = UnidadHabitacional
         fields = [
-            'bloque', 'numero', 'piso', 'tipo', 'area_m2',
-            'num_habitaciones', 'num_banos', 'tiene_balcon',
+            'bloque', 'numero', 'area_m2',
+            'num_habitaciones', 'num_banos',
             'tiene_parqueadero', 'observaciones', 'is_active'
         ]
 
