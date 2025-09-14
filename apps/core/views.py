@@ -24,7 +24,7 @@ class BloqueViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     search_fields = ['nombre', 'descripcion']
     filterset_fields = ['condominio', 'is_active']
-    ordering_fields = ['nombre', 'numero_pisos', 'created_at']
+    ordering_fields = ['nombre', 'created_at']
     ordering = ['condominio__nombre', 'nombre']
 
 

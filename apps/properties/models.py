@@ -9,17 +9,9 @@ class UnidadHabitacional(TimeStampedModel):
     """
     bloque = models.ForeignKey(Bloque, on_delete=models.CASCADE, related_name='unidades')
     numero = models.CharField(max_length=10)
-    piso = models.PositiveIntegerField()
-    tipo = models.CharField(max_length=50, choices=[
-        ('departamento', 'Departamento'),
-        ('casa', 'Casa'),
-        ('oficina', 'Oficina'),
-        ('local_comercial', 'Local Comercial'),
-    ], default='departamento')
     area_m2 = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
     num_habitaciones = models.PositiveIntegerField(null=True, blank=True)
     num_banos = models.PositiveIntegerField(null=True, blank=True)
-    tiene_balcon = models.BooleanField(default=False)
     tiene_parqueadero = models.BooleanField(default=False)
     observaciones = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)

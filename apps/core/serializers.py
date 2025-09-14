@@ -29,7 +29,7 @@ class BloqueSerializer(serializers.ModelSerializer):
         model = Bloque
         fields = (
             'id', 'condominio', 'condominio_name', 'nombre', 'descripcion',
-            'numero_pisos', 'is_active', 'unidades_count', 'created_at', 'updated_at'
+            'is_active', 'unidades_count', 'created_at', 'updated_at'
         )
 
     def get_unidades_count(self, obj):

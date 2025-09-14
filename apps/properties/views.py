@@ -24,8 +24,8 @@ class UnidadHabitacionalViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     search_fields = ['numero', 'bloque__nombre', 'bloque__condominio__nombre']
-    filterset_fields = ['bloque', 'tipo', 'piso', 'is_active']
-    ordering_fields = ['numero', 'piso', 'area_m2', 'created_at']
+    filterset_fields = ['bloque', 'is_active']
+    ordering_fields = ['numero', 'area_m2', 'created_at']
     ordering = ['bloque__nombre', 'numero']
 
     def get_serializer_class(self):
@@ -107,13 +107,10 @@ class UnidadHabitacionalViewSet(viewsets.ModelViewSet):
             unidad_data = {
                 'id': unidad.id,
                 'numero': unidad.numero,
-                'tipo': unidad.tipo,
                 'is_active': unidad.is_active,
                 'area_m2': unidad.area_m2,
-                'piso': unidad.piso,
                 'num_habitaciones': unidad.num_habitaciones,
                 'num_banos': unidad.num_banos,
-                'tiene_balcon': unidad.tiene_balcon,
                 'tiene_parqueadero': unidad.tiene_parqueadero,
             }
             bloques_data[bloque_nombre]['unidades'].append(unidad_data)
