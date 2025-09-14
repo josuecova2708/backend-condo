@@ -174,8 +174,42 @@ class PropietarioViewSet(viewsets.ModelViewSet):
         propietario = self.get_object()
         propietario.is_active = not propietario.is_active
         propietario.save()
-        
+
         serializer = self.get_serializer(propietario)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def usuarios_sin_unidad(self, request):
+        """
+        Obtener usuarios con rol propietario que no tienen unidad asignada
+        """
+        from apps.users.models import User
+        from apps.users.serializers import UserSerializer
+        import logging
+
+        logger = logging.getLogger(__name__)
+
+        # Obtener TODOS los usuarios con rol de propietario activos
+        todos_propietarios = User.objects.filter(
+            role__nombre='Propietario',
+            is_active=True
+        )
+
+        logger.info(f"Total usuarios con rol Propietario: {todos_propietarios.count()}")
+
+        # Obtener usuarios que NO tienen asignación activa de propiedad
+        usuarios_sin_unidad = todos_propietarios.exclude(
+            propiedades_owned__is_active=True
+        ).distinct()
+
+        logger.info(f"Usuarios sin unidad asignada: {usuarios_sin_unidad.count()}")
+
+        # Si no hay usuarios específicos, devolver todos los propietarios para debug
+        if usuarios_sin_unidad.count() == 0:
+            logger.warning("No se encontraron usuarios sin unidad, devolviendo todos los propietarios")
+            usuarios_sin_unidad = todos_propietarios
+
+        serializer = UserSerializer(usuarios_sin_unidad, many=True)
         return Response(serializer.data)
 
 
