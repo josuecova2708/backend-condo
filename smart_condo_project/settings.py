@@ -49,7 +49,8 @@ CSRF_TRUSTED_ORIGINS = [
     'https://frontend-condo-kyhyfxk53-josue-covarrubias-projects.vercel.app',
     'http://localhost:3000',
     'http://127.0.0.1:3000',
-    'http://localhost:61101/',
+    'http://localhost:61101',
+    'http://127.0.0.1:61101',
 ]
 
 
@@ -235,6 +236,9 @@ CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',
     'http://127.0.0.1:3000',
     'https://localhost:3000',
+    # Flutter Development
+    'http://localhost:61101',
+    'http://127.0.0.1:61101',
 ]
 
 # Regex patterns para preview deployments de Vercel
