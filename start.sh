@@ -12,8 +12,14 @@ python manage.py migrate
 # Collect static files
 python manage.py collectstatic --noinput
 
-# Start gunicorn with Railway's PORT or default to 8000
-ACTUAL_PORT=${PORT:-8000}
+# Ensure PORT is set - Railway must provide this
+if [ -z "$PORT" ]; then
+    echo "ERROR: PORT variable not set by Railway!"
+    echo "Setting default PORT=8080"
+    export PORT=8080
+fi
+
+ACTUAL_PORT=${PORT:-8080}
 echo "Starting gunicorn on port: $ACTUAL_PORT"
 
 exec gunicorn smart_condo_project.wsgi:application \
