@@ -34,7 +34,9 @@ def health_check(request):
     })
 
 urlpatterns = [
-    # Health check
+    # Health checks - Railway busca en raíz
+    path('', health_check, name='root_health_check'),
+    path('health/', health_check, name='health_check_alt'),
     path('api/health/', health_check, name='health_check'),
 
     # Admin

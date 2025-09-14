@@ -17,8 +17,4 @@ ACTUAL_PORT=${PORT:-8000}
 echo "Starting gunicorn on port: $ACTUAL_PORT"
 
 exec gunicorn smart_condo_project.wsgi:application \
-    --bind 0.0.0.0:$ACTUAL_PORT \
-    --workers 2 \
-    --timeout 120 \
-    --access-logfile - \
-    --error-logfile -
+    --config gunicorn.conf.py
