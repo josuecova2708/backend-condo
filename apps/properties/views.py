@@ -87,6 +87,26 @@ class UnidadHabitacionalViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     @action(detail=False, methods=['get'])
+    def sin_propietario(self, request):
+        """
+        Obtener unidades que no tienen propietarios activos asignados
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+
+        # Obtener unidades activas que NO tienen propietarios activos
+        unidades_sin_propietario = self.get_queryset().filter(
+            is_active=True
+        ).exclude(
+            propietarios__is_active=True
+        ).distinct()
+
+        logger.info(f"Total unidades sin propietario: {unidades_sin_propietario.count()}")
+
+        serializer = self.get_serializer(unidades_sin_propietario, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
     def map_layout(self, request):
         """
         Obtener el layout del mapa con las unidades organizadas por bloques
