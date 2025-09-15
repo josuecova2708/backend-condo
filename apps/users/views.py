@@ -61,6 +61,85 @@ class RoleViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
     ordering = ['nombre']
 
+    @action(detail=True, methods=['get'])
+    def permissions(self, request, pk=None):
+        """
+        Obtener todos los permisos asignados a un rol específico
+        """
+        role = self.get_object()
+        permissions = role.permissions.select_related('permission').order_by('permission__modulo', 'permission__nombre')
+        serializer = PermissionSerializer([rp.permission for rp in permissions], many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def assign_permission(self, request, pk=None):
+        """
+        Asignar un permiso a un rol
+        """
+        role = self.get_object()
+        permission_id = request.data.get('permission_id')
+
+        if not permission_id:
+            return Response(
+                {'error': 'permission_id es requerido'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            permission = Permission.objects.get(id=permission_id)
+            role.permissions.add(permission)
+            return Response({'message': f'Permiso {permission.nombre} asignado al rol {role.nombre}'})
+        except Permission.DoesNotExist:
+            return Response(
+                {'error': 'Permiso no encontrado'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+    @action(detail=True, methods=['post'])
+    def remove_permission(self, request, pk=None):
+        """
+        Remover un permiso de un rol
+        """
+        role = self.get_object()
+        permission_id = request.data.get('permission_id')
+
+        if not permission_id:
+            return Response(
+                {'error': 'permission_id es requerido'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            permission = Permission.objects.get(id=permission_id)
+            role.permissions.remove(permission)
+            return Response({'message': f'Permiso {permission.nombre} removido del rol {role.nombre}'})
+        except Permission.DoesNotExist:
+            return Response(
+                {'error': 'Permiso no encontrado'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+    @action(detail=True, methods=['post'])
+    def sync_permissions(self, request, pk=None):
+        """
+        Sincronizar permisos de un rol (reemplazar todos los permisos)
+        """
+        role = self.get_object()
+        permission_ids = request.data.get('permission_ids', [])
+
+        try:
+            permissions = Permission.objects.filter(id__in=permission_ids)
+            role.permissions.set(permissions)
+            return Response({
+                'message': f'Permisos sincronizados para el rol {role.nombre}',
+                'count': permissions.count()
+            })
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
 
 class PermissionViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Permission.objects.all()
