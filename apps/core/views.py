@@ -33,7 +33,42 @@ class ConfiguracionSistemaViewSet(viewsets.ModelViewSet):
     serializer_class = ConfiguracionSistemaSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    search_fields = ['clave', 'descripcion']
-    filterset_fields = ['tipo']
-    ordering_fields = ['clave', 'created_at']
-    ordering = ['clave']
+    search_fields = ['clave', 'descripcion', 'categoria']
+    filterset_fields = ['tipo', 'categoria']
+    ordering_fields = ['clave', 'categoria', 'created_at']
+    ordering = ['categoria', 'clave']
+
+    def get_permissions(self):
+        """
+        Instantiates and returns the list of permissions that this view requires.
+        Solo permite GET (list, retrieve) y DELETE (destroy)
+        """
+        if self.action in ['create', 'update', 'partial_update']:
+            # Denegamos acceso a CREATE, UPDATE, PATCH
+            self.permission_classes = []
+            return [permission() for permission in self.permission_classes]
+        return super().get_permissions()
+
+    def create(self, request, *args, **kwargs):
+        from rest_framework.response import Response
+        from rest_framework import status
+        return Response(
+            {'detail': 'Operación no permitida. Solo se permite consultar y eliminar configuraciones.'},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED
+        )
+
+    def update(self, request, *args, **kwargs):
+        from rest_framework.response import Response
+        from rest_framework import status
+        return Response(
+            {'detail': 'Operación no permitida. Solo se permite consultar y eliminar configuraciones.'},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED
+        )
+
+    def partial_update(self, request, *args, **kwargs):
+        from rest_framework.response import Response
+        from rest_framework import status
+        return Response(
+            {'detail': 'Operación no permitida. Solo se permite consultar y eliminar configuraciones.'},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED
+        )

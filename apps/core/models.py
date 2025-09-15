@@ -67,6 +67,7 @@ class ConfiguracionSistema(TimeStampedModel):
         ('boolean', 'Booleano'),
         ('json', 'JSON'),
     ], default='string')
+    categoria = models.CharField(max_length=100, blank=True)
 
     class Meta:
         db_table = 'configuraciones_sistema'
