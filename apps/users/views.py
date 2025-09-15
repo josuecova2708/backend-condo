@@ -76,6 +76,8 @@ class RoleViewSet(viewsets.ReadOnlyModelViewSet):
         """
         Asignar un permiso a un rol
         """
+        from apps.users.models import RolePermission
+
         role = self.get_object()
         permission_id = request.data.get('permission_id')
 
@@ -87,8 +89,15 @@ class RoleViewSet(viewsets.ReadOnlyModelViewSet):
 
         try:
             permission = Permission.objects.get(id=permission_id)
-            role.permissions.add(permission)
-            return Response({'message': f'Permiso {permission.nombre} asignado al rol {role.nombre}'})
+            # Crear la relación si no existe
+            role_permission, created = RolePermission.objects.get_or_create(
+                role=role,
+                permission=permission
+            )
+            if created:
+                return Response({'message': f'Permiso {permission.nombre} asignado al rol {role.nombre}'})
+            else:
+                return Response({'message': f'El permiso {permission.nombre} ya estaba asignado al rol {role.nombre}'})
         except Permission.DoesNotExist:
             return Response(
                 {'error': 'Permiso no encontrado'},
@@ -100,6 +109,8 @@ class RoleViewSet(viewsets.ReadOnlyModelViewSet):
         """
         Remover un permiso de un rol
         """
+        from apps.users.models import RolePermission
+
         role = self.get_object()
         permission_id = request.data.get('permission_id')
 
@@ -111,8 +122,16 @@ class RoleViewSet(viewsets.ReadOnlyModelViewSet):
 
         try:
             permission = Permission.objects.get(id=permission_id)
-            role.permissions.remove(permission)
-            return Response({'message': f'Permiso {permission.nombre} removido del rol {role.nombre}'})
+            # Eliminar la relación si existe
+            deleted_count, _ = RolePermission.objects.filter(
+                role=role,
+                permission=permission
+            ).delete()
+
+            if deleted_count > 0:
+                return Response({'message': f'Permiso {permission.nombre} removido del rol {role.nombre}'})
+            else:
+                return Response({'message': f'El permiso {permission.nombre} no estaba asignado al rol {role.nombre}'})
         except Permission.DoesNotExist:
             return Response(
                 {'error': 'Permiso no encontrado'},
@@ -124,15 +143,26 @@ class RoleViewSet(viewsets.ReadOnlyModelViewSet):
         """
         Sincronizar permisos de un rol (reemplazar todos los permisos)
         """
+        from apps.users.models import RolePermission
+
         role = self.get_object()
         permission_ids = request.data.get('permission_ids', [])
 
         try:
+            # Eliminar todas las relaciones existentes
+            RolePermission.objects.filter(role=role).delete()
+
+            # Crear las nuevas relaciones
             permissions = Permission.objects.filter(id__in=permission_ids)
-            role.permissions.set(permissions)
+            role_permissions = [
+                RolePermission(role=role, permission=permission)
+                for permission in permissions
+            ]
+            RolePermission.objects.bulk_create(role_permissions)
+
             return Response({
                 'message': f'Permisos sincronizados para el rol {role.nombre}',
-                'count': permissions.count()
+                'count': len(role_permissions)
             })
         except Exception as e:
             return Response(
