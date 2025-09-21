@@ -61,6 +61,7 @@ urlpatterns = [
     path('api/properties/', include('apps.properties.urls')),
     path('api/communications/', include('apps.communications.urls')),
     path('api/core/', include('apps.core.urls')),
+    path('api/finances/', include('finances.urls')),
 ]
 
 # Media files (for development)

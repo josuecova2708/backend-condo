@@ -111,3 +111,14 @@ class UserCreateSerializer(serializers.ModelSerializer):
         password = validated_data.pop('password')
         user = User.objects.create_user(password=password, **validated_data)
         return user
+
+
+class UserBasicSerializer(serializers.ModelSerializer):
+    """
+    Serializer básico para información de usuario en relaciones
+    """
+    full_name = serializers.CharField(source='get_full_name', read_only=True)
+
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'first_name', 'last_name', 'full_name', 'email']
