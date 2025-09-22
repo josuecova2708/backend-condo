@@ -79,6 +79,7 @@ INSTALLED_APPS = [
     'apps.properties',
     'apps.communications',
     'finances',
+    'areas_comunes',
 ]
 
 MIDDLEWARE = [
