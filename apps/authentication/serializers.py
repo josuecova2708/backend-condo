@@ -25,7 +25,15 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
     def validate(self, attrs):
         data = super().validate(attrs)
-        
+
+        # Obtener propietario_id
+        propietario_id = None
+        try:
+            propietario = self.user.propiedades_owned.filter(is_active=True).first()
+            propietario_id = propietario.id if propietario else None
+        except:
+            propietario_id = None
+
         # Agregar información del usuario a la respuesta
         data['user'] = {
             'id': self.user.id,
@@ -36,8 +44,9 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             'role': self.user.role.nombre if self.user.role else None,
             'condominio': self.user.condominio.nombre if self.user.condominio else None,
             'is_verified': self.user.is_verified,
+            'propietario_id': propietario_id,
         }
-        
+
         return data
 
 
@@ -107,6 +116,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
     role_name = serializers.CharField(source='role.nombre', read_only=True)
     condominio_name = serializers.CharField(source='condominio.nombre', read_only=True)
     full_name = serializers.CharField(source='get_full_name', read_only=True)
+    propietario_id = serializers.SerializerMethodField()
     
     class Meta:
         model = User
@@ -115,12 +125,29 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'telefono', 'cedula', 'fecha_nacimiento', 'avatar',
             'is_verified', 'date_joined', 'last_login',
             'role', 'role_name', 'condominio', 'condominio_name',
-            'full_name'
+            'full_name', 'propietario_id'
         )
         read_only_fields = (
             'id', 'username', 'date_joined', 'last_login',
-            'is_verified', 'role_name', 'condominio_name', 'full_name'
+            'is_verified', 'role_name', 'condominio_name', 'full_name',
+            'propietario_id'
         )
+
+    def get_propietario_id(self, obj):
+        """
+        Obtener el ID del propietario asociado al usuario
+        """
+        try:
+            print(f"Debug: Getting propietario_id for user {obj.id}")
+            propietarios = obj.propiedades_owned.filter(is_active=True)
+            print(f"Debug: Found {propietarios.count()} active propietarios")
+            propietario = propietarios.first()
+            result = propietario.id if propietario else None
+            print(f"Debug: Returning propietario_id: {result}")
+            return result
+        except Exception as e:
+            print(f"Debug: Error getting propietario_id: {e}")
+            return None
 
     def validate_email(self, value):
         """
