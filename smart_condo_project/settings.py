@@ -80,6 +80,7 @@ INSTALLED_APPS = [
     'apps.communications',
     'finances',
     'areas_comunes',
+    'mantenimiento',
 ]
 
 MIDDLEWARE = [
