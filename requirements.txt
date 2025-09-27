@@ -23,5 +23,8 @@ drf-spectacular==0.28.0
 # Image handling
 Pillow==11.3.0
 
+# AI Services
+google-cloud-vision>=3.4.0
+
 # Production server
 gunicorn==23.0.0

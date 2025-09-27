@@ -78,6 +78,7 @@ INSTALLED_APPS = [
     'apps.users',
     'apps.properties',
     'apps.communications',
+    'ai_security',
     'finances',
     'areas_comunes',
     'mantenimiento',
@@ -175,6 +176,10 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Custom User Model
 AUTH_USER_MODEL = 'users.User'
+
+# Google Cloud Vision Configuration
+GOOGLE_CLOUD_CREDENTIALS_JSON = config('GOOGLE_CLOUD_CREDENTIALS_JSON', default=None)
+GOOGLE_CLOUD_CREDENTIALS_PATH = BASE_DIR / 'google-credentials.json'
 
 # Django REST Framework Configuration
 REST_FRAMEWORK = {
