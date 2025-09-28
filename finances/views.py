@@ -7,14 +7,14 @@ from decimal import Decimal
 from django.db.models import Q, Sum, Count
 from django.utils import timezone
 
-from .models import Infraccion, Cargo, ConfiguracionMultas, EstadoInfraccion, EstadoCargo, TipoCargo
+from .models import Infraccion, Cargo, TipoInfraccion, EstadoInfraccion, EstadoCargo, TipoCargo
 from .serializers import (
     InfraccionSerializer, InfraccionCreateSerializer, InfraccionListSerializer,
     CargoSerializer, CargoCreateSerializer, CargoListSerializer,
-    ConfiguracionMultasSerializer, AplicarMultaSerializer, ProcesarPagoSerializer,
+    TipoInfraccionSerializer, AplicarMultaSerializer, ProcesarPagoSerializer,
     EstadisticasInfraccionesSerializer
 )
-from .services import MultasService, ConfiguracionMultasService
+from .services import MultasService, TipoInfraccionService
 
 
 class InfraccionViewSet(viewsets.ModelViewSet):
@@ -255,39 +255,43 @@ class CargoViewSet(viewsets.ModelViewSet):
             })
 
 
-class ConfiguracionMultasViewSet(viewsets.ModelViewSet):
+class TipoInfraccionViewSet(viewsets.ModelViewSet):
     """
-    ViewSet para gestionar configuraciones de multas
+    ViewSet para gestionar tipos de infracciones dinámicos
     """
-    queryset = ConfiguracionMultas.objects.all().order_by('tipo_infraccion')
-    serializer_class = ConfiguracionMultasSerializer
+    queryset = TipoInfraccion.objects.all().order_by('orden', 'nombre')
     permission_classes = [permissions.IsAuthenticated]
 
     filter_backends = [DjangoFilterBackend, OrderingFilter]
-    filterset_fields = ['tipo_infraccion', 'es_activa']
-    ordering_fields = ['tipo_infraccion', 'monto_base', 'monto_reincidencia']
+    filterset_fields = ['es_activo']
+    ordering_fields = ['orden', 'nombre', 'monto_base', 'monto_reincidencia']
+
+    def get_serializer_class(self):
+        """Usar diferentes serializers según la acción"""
+        # Por ahora usamos el mismo, más adelante podemos crear específicos
+        return TipoInfraccionSerializer
 
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
-    def activas(self, request):
-        """Obtener solo configuraciones activas"""
-        configuraciones = ConfiguracionMultasService.obtener_configuraciones_activas()
-        serializer = ConfiguracionMultasSerializer(configuraciones, many=True)
+    def activos(self, request):
+        """Obtener solo tipos activos"""
+        tipos = TipoInfraccion.objects.filter(es_activo=True).order_by('orden', 'nombre')
+        serializer = TipoInfraccionSerializer(tipos, many=True)
         return Response(serializer.data)
 
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def activar(self, request, pk=None):
-        """Activar una configuración de multa"""
-        configuracion = self.get_object()
-        configuracion.es_activa = True
-        configuracion.save()
-        serializer = ConfiguracionMultasSerializer(configuracion)
+        """Activar un tipo de infracción"""
+        tipo = self.get_object()
+        tipo.es_activo = True
+        tipo.save()
+        serializer = TipoInfraccionSerializer(tipo)
         return Response(serializer.data)
 
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def desactivar(self, request, pk=None):
-        """Desactivar una configuración de multa"""
-        configuracion = self.get_object()
-        configuracion.es_activa = False
-        configuracion.save()
-        serializer = ConfiguracionMultasSerializer(configuracion)
+        """Desactivar un tipo de infracción"""
+        tipo = self.get_object()
+        tipo.es_activo = False
+        tipo.save()
+        serializer = TipoInfraccionSerializer(tipo)
         return Response(serializer.data)

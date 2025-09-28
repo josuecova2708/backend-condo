@@ -1,12 +1,12 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import InfraccionViewSet, CargoViewSet, ConfiguracionMultasViewSet
+from .views import InfraccionViewSet, CargoViewSet, TipoInfraccionViewSet
 
 # Crear router para las APIs REST
 router = DefaultRouter()
 router.register(r'infracciones', InfraccionViewSet, basename='infracciones')
 router.register(r'cargos', CargoViewSet, basename='cargos')
-router.register(r'configuracion-multas', ConfiguracionMultasViewSet, basename='configuracion-multas')
+router.register(r'tipos-infraccion', TipoInfraccionViewSet, basename='tipos-infraccion')
 
 app_name = 'finances'
 

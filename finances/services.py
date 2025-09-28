@@ -5,8 +5,7 @@ from django.utils import timezone
 from typing import List, Optional, Dict, Any
 
 from .models import (
-    Infraccion, Cargo, ConfiguracionMultas,
-    TipoInfraccion, EstadoInfraccion, TipoCargo, EstadoCargo
+    Infraccion, Cargo, TipoInfraccion, EstadoInfraccion, TipoCargo, EstadoCargo
 )
 from apps.properties.models import Propietario
 
@@ -19,7 +18,7 @@ class MultasService:
     @staticmethod
     def registrar_infraccion(
         propietario_id: int,
-        tipo_infraccion: str,
+        tipo_infraccion_id: int,
         descripcion: str,
         fecha_infraccion: datetime,
         reportado_por_id: Optional[int] = None,
@@ -34,9 +33,11 @@ class MultasService:
         except Propietario.DoesNotExist:
             raise ValueError(f"Propietario con ID {propietario_id} no existe")
 
-        # Verificar si el tipo de infracción es válido
-        if tipo_infraccion not in [choice[0] for choice in TipoInfraccion.choices]:
-            raise ValueError(f"Tipo de infracción '{tipo_infraccion}' no es válido")
+        # Verificar si el tipo de infracción existe y está activo
+        try:
+            tipo_infraccion = TipoInfraccion.objects.get(id=tipo_infraccion_id, es_activo=True)
+        except TipoInfraccion.DoesNotExist:
+            raise ValueError(f"Tipo de infracción con ID {tipo_infraccion_id} no existe o no está activo")
 
         with transaction.atomic():
             infraccion = Infraccion.objects.create(
@@ -110,17 +111,11 @@ class MultasService:
         # Obtener configuración de multa o usar monto personalizado
         if monto_personalizado:
             monto_multa = monto_personalizado
-            dias_pago = 15  # Default
+            dias_pago = infraccion.tipo_infraccion.dias_para_pago  # Usar días del tipo de infracción
         else:
-            try:
-                config = ConfiguracionMultas.objects.get(
-                    tipo_infraccion=infraccion.tipo_infraccion,
-                    es_activa=True
-                )
-                monto_multa = config.monto_reincidencia if infraccion.es_reincidente else config.monto_base
-                dias_pago = config.dias_para_pago
-            except ConfiguracionMultas.DoesNotExist:
-                raise ValueError(f"No existe configuración activa para el tipo de infracción '{infraccion.tipo_infraccion}'")
+            # Usar montos del tipo de infracción
+            monto_multa = infraccion.tipo_infraccion.monto_reincidencia if infraccion.es_reincidente else infraccion.tipo_infraccion.monto_base
+            dias_pago = infraccion.tipo_infraccion.dias_para_pago
 
         with transaction.atomic():
             # Actualizar infracción
@@ -133,7 +128,7 @@ class MultasService:
             cargo = Cargo.objects.create(
                 propietario=infraccion.propietario,
                 unidad=infraccion.unidad,
-                concepto=f"Multa por {infraccion.get_tipo_infraccion_display()}: {infraccion.descripcion[:100]}",
+                concepto=f"Multa por {infraccion.tipo_infraccion.nombre}: {infraccion.descripcion[:100]}",
                 tipo_cargo=TipoCargo.MULTA,
                 monto=monto_multa,
                 fecha_vencimiento=infraccion.fecha_limite_pago,
@@ -222,12 +217,11 @@ class MultasService:
         }
 
         # Estadísticas por tipo de infracción
-        for tipo_choice in TipoInfraccion.choices:
-            tipo_code = tipo_choice[0]
-            tipo_label = tipo_choice[1]
-            count = queryset.filter(tipo_infraccion=tipo_code).count()
+        tipos_infracciones = TipoInfraccion.objects.filter(es_activo=True)
+        for tipo in tipos_infracciones:
+            count = queryset.filter(tipo_infraccion=tipo).count()
             if count > 0:
-                estadisticas['por_tipo'][tipo_label] = count
+                estadisticas['por_tipo'][tipo.nombre] = count
 
         return estadisticas
 
@@ -259,70 +253,109 @@ class MultasService:
         return cargos_interes_generados
 
 
-class ConfiguracionMultasService:
+class TipoInfraccionService:
     """
-    Servicio para gestionar configuraciones de multas
+    Servicio para gestionar tipos de infracciones dinámicos
     """
 
     @staticmethod
-    def crear_configuracion(
-        tipo_infraccion: str,
+    def crear_tipo_infraccion(
+        codigo: str,
+        nombre: str,
         monto_base: Decimal,
         monto_reincidencia: Decimal,
         dias_para_pago: int = 15,
-        descripcion: str = ""
-    ) -> ConfiguracionMultas:
+        descripcion: str = "",
+        orden: int = 0
+    ) -> TipoInfraccion:
         """
-        Crea una nueva configuración de multa
+        Crea un nuevo tipo de infracción
         """
-        if tipo_infraccion not in [choice[0] for choice in TipoInfraccion.choices]:
-            raise ValueError(f"Tipo de infracción '{tipo_infraccion}' no es válido")
+        if TipoInfraccion.objects.filter(codigo=codigo).exists():
+            raise ValueError(f"Ya existe un tipo de infracción con código '{codigo}'")
 
-        if ConfiguracionMultas.objects.filter(tipo_infraccion=tipo_infraccion).exists():
-            raise ValueError(f"Ya existe una configuración para el tipo '{tipo_infraccion}'")
-
-        return ConfiguracionMultas.objects.create(
-            tipo_infraccion=tipo_infraccion,
+        return TipoInfraccion.objects.create(
+            codigo=codigo,
+            nombre=nombre,
+            descripcion=descripcion,
             monto_base=monto_base,
             monto_reincidencia=monto_reincidencia,
             dias_para_pago=dias_para_pago,
-            descripcion=descripcion
+            orden=orden,
+            es_activo=True
         )
 
     @staticmethod
-    def actualizar_configuracion(
-        tipo_infraccion: str,
+    def actualizar_tipo_infraccion(
+        tipo_id: int,
+        codigo: Optional[str] = None,
+        nombre: Optional[str] = None,
         monto_base: Optional[Decimal] = None,
         monto_reincidencia: Optional[Decimal] = None,
         dias_para_pago: Optional[int] = None,
         descripcion: Optional[str] = None,
-        es_activa: Optional[bool] = None
-    ) -> ConfiguracionMultas:
+        orden: Optional[int] = None,
+        es_activo: Optional[bool] = None
+    ) -> TipoInfraccion:
         """
-        Actualiza una configuración existente
+        Actualiza un tipo de infracción existente
         """
         try:
-            config = ConfiguracionMultas.objects.get(tipo_infraccion=tipo_infraccion)
-        except ConfiguracionMultas.DoesNotExist:
-            raise ValueError(f"No existe configuración para el tipo '{tipo_infraccion}'")
+            tipo = TipoInfraccion.objects.get(id=tipo_id)
+        except TipoInfraccion.DoesNotExist:
+            raise ValueError(f"No existe tipo de infracción con ID '{tipo_id}'")
 
+        if codigo is not None and codigo != tipo.codigo:
+            if TipoInfraccion.objects.filter(codigo=codigo).exists():
+                raise ValueError(f"Ya existe un tipo de infracción con código '{codigo}'")
+            tipo.codigo = codigo
+        if nombre is not None:
+            tipo.nombre = nombre
         if monto_base is not None:
-            config.monto_base = monto_base
+            tipo.monto_base = monto_base
         if monto_reincidencia is not None:
-            config.monto_reincidencia = monto_reincidencia
+            tipo.monto_reincidencia = monto_reincidencia
         if dias_para_pago is not None:
-            config.dias_para_pago = dias_para_pago
+            tipo.dias_para_pago = dias_para_pago
         if descripcion is not None:
-            config.descripcion = descripcion
-        if es_activa is not None:
-            config.es_activa = es_activa
+            tipo.descripcion = descripcion
+        if orden is not None:
+            tipo.orden = orden
+        if es_activo is not None:
+            tipo.es_activo = es_activo
 
-        config.save()
-        return config
+        tipo.save()
+        return tipo
 
     @staticmethod
-    def obtener_configuraciones_activas() -> List[ConfiguracionMultas]:
+    def obtener_tipos_activos() -> List[TipoInfraccion]:
         """
-        Obtiene todas las configuraciones activas
+        Obtiene todos los tipos de infracciones activos
         """
-        return ConfiguracionMultas.objects.filter(es_activa=True).order_by('tipo_infraccion')
+        return TipoInfraccion.objects.filter(es_activo=True).order_by('orden', 'nombre')
+
+    @staticmethod
+    def activar_tipo(tipo_id: int) -> TipoInfraccion:
+        """
+        Activa un tipo de infracción
+        """
+        try:
+            tipo = TipoInfraccion.objects.get(id=tipo_id)
+            tipo.es_activo = True
+            tipo.save()
+            return tipo
+        except TipoInfraccion.DoesNotExist:
+            raise ValueError(f"No existe tipo de infracción con ID '{tipo_id}'")
+
+    @staticmethod
+    def desactivar_tipo(tipo_id: int) -> TipoInfraccion:
+        """
+        Desactiva un tipo de infracción
+        """
+        try:
+            tipo = TipoInfraccion.objects.get(id=tipo_id)
+            tipo.es_activo = False
+            tipo.save()
+            return tipo
+        except TipoInfraccion.DoesNotExist:
+            raise ValueError(f"No existe tipo de infracción con ID '{tipo_id}'")
