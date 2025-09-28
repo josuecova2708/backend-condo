@@ -8,7 +8,6 @@ ENV PYTHONUNBUFFERED 1
 WORKDIR /app
 
 # Install system dependencies including CMake and OpenCV dependencies
-# Install system dependencies
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         postgresql-client \
@@ -25,19 +24,14 @@ RUN apt-get update \
         libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
-
-# Install Python dependencies
+# Copy requirements
 COPY requirements.txt .
 
-# First install OpenCV from system packages to avoid compilation
-RUN pip install --no-cache-dir opencv-python-headless
-
-# Then install the rest of dependencies
-    && rm -rf /var/lib/apt/lists/*
-
 # Install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Primero instalamos OpenCV para evitar compilación
+RUN pip install --no-cache-dir opencv-python-headless==4.8.1.78 \
+    && pip install --no-cache-dir -r requirements.txt \
+    && pip install "numpy<2"  # 👈 fuerza numpy 1.x para compatibilidad con dlib
 
 # Copy project
 COPY . .
