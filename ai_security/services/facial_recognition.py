@@ -165,14 +165,14 @@ class FacialRecognitionService:
             return None
 
     @staticmethod
-    def compare_faces(known_encodings: List[List[float]], unknown_encoding: List[float], tolerance: float = 2.0) -> Tuple[List[bool], List[float]]:
+    def compare_faces(known_encodings: List[List[float]], unknown_encoding: List[float], tolerance: float = 0.4) -> Tuple[List[bool], List[float]]:
         """
         Compara un encoding desconocido con encodings conocidos usando distancia euclidiana.
 
         Args:
             known_encodings: Lista de encodings conocidos
             unknown_encoding: Encoding a comparar
-            tolerance: Tolerancia para considerar una coincidencia (default: 2.0 para OpenCV - muy permisivo)
+            tolerance: Tolerancia para considerar una coincidencia (default: 0.4 - más conservador)
 
         Returns:
             Tupla con (lista de coincidencias booleanas, lista de distancias)
@@ -285,14 +285,29 @@ class FacialRecognitionService:
             # Encontrar la mejor coincidencia
             best_match_index = None
             best_confidence = 0.0
+            minimum_confidence_threshold = 60.0  # Umbral mínimo de confianza del 60%
 
             for i, (match, distance) in enumerate(zip(matches, distances)):
                 profile = profile_map[i]
-                confidence = max(0, (1 - distance) * 100)  # Convertir distancia a porcentaje de confianza
+
+                # Mejorar cálculo de confianza: escala logarítmica inversa más conservadora
+                if distance <= 0.2:
+                    confidence = 95.0  # Muy alta similitud
+                elif distance <= 0.4:
+                    confidence = 85.0 - (distance - 0.2) * 100  # 85% a 65%
+                elif distance <= 0.6:
+                    confidence = 65.0 - (distance - 0.4) * 75   # 65% a 50%
+                elif distance <= 0.8:
+                    confidence = 50.0 - (distance - 0.6) * 100  # 50% a 30%
+                else:
+                    confidence = max(0, 30.0 - (distance - 0.8) * 150)  # 30% a 0%
+
+                confidence = max(0, min(confidence, 100))  # Limitar entre 0 y 100
 
                 logger.info(f"👤 {profile.name}: distancia={distance:.4f}, confianza={confidence:.2f}%, match={match}")
 
-                if match and confidence > best_confidence:
+                # Solo considerar como coincidencia válida si supera el umbral mínimo
+                if match and confidence >= minimum_confidence_threshold and confidence > best_confidence:
                     best_confidence = confidence
                     best_match_index = i
 
@@ -306,7 +321,22 @@ class FacialRecognitionService:
                     'access_granted': matched_profile.is_authorized
                 }
             else:
-                logger.info(f"❌ Persona no reconocida. Mejor confianza: {max([max(0, (1 - d) * 100) for d in distances], default=0):.2f}%")
+                # Calcular la mejor confianza para logging
+                best_overall_confidence = 0.0
+                for distance in distances:
+                    if distance <= 0.2:
+                        conf = 95.0
+                    elif distance <= 0.4:
+                        conf = 85.0 - (distance - 0.2) * 100
+                    elif distance <= 0.6:
+                        conf = 65.0 - (distance - 0.4) * 75
+                    elif distance <= 0.8:
+                        conf = 50.0 - (distance - 0.6) * 100
+                    else:
+                        conf = max(0, 30.0 - (distance - 0.8) * 150)
+                    best_overall_confidence = max(best_overall_confidence, max(0, min(conf, 100)))
+
+                logger.info(f"❌ Persona no reconocida. Mejor confianza: {best_overall_confidence:.2f}% (por debajo del umbral {minimum_confidence_threshold}%)")
                 return {
                     'success': True,
                     'person_profile': None,
@@ -362,12 +392,25 @@ class FacialRecognitionService:
                         continue
 
                 if known_encodings:
-                    matches, distances = FacialRecognitionService.compare_faces(known_encodings, face_encoding, tolerance=0.6)
+                    matches, distances = FacialRecognitionService.compare_faces(known_encodings, face_encoding, tolerance=0.4)
 
                     for i, (match, distance) in enumerate(zip(matches, distances)):
                         if match:
-                            confidence = max(0, (1 - distance) * 100)
-                            if confidence > 70:  # Alta similitud (ajustado para OpenCV)
+                            # Usar el mismo cálculo de confianza mejorado
+                            if distance <= 0.2:
+                                confidence = 95.0
+                            elif distance <= 0.4:
+                                confidence = 85.0 - (distance - 0.2) * 100
+                            elif distance <= 0.6:
+                                confidence = 65.0 - (distance - 0.4) * 75
+                            elif distance <= 0.8:
+                                confidence = 50.0 - (distance - 0.6) * 100
+                            else:
+                                confidence = max(0, 30.0 - (distance - 0.8) * 150)
+
+                            confidence = max(0, min(confidence, 100))
+
+                            if confidence > 60:  # Umbral conservador para evitar duplicados
                                 return {
                                     'success': False,
                                     'error': f'Ya existe una persona muy similar registrada (confianza: {confidence:.1f}%)'
