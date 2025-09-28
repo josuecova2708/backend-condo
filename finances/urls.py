@@ -27,6 +27,8 @@ urlpatterns = [
 # POST   /api/infracciones/{id}/confirmar/      - Confirmar infracción
 # POST   /api/infracciones/{id}/rechazar/       - Rechazar infracción
 # POST   /api/infracciones/{id}/aplicar_multa/  - Aplicar multa
+# POST   /api/infracciones/{id}/confirmar_pago/ - Confirmar pago de infracción
+# PATCH  /api/infracciones/{id}/cambiar_estado/ - Cambiar estado (solo admin)
 # GET    /api/infracciones/pendientes/          - Infracciones pendientes
 # GET    /api/infracciones/estadisticas/        - Estadísticas de infracciones
 #
@@ -38,6 +40,8 @@ urlpatterns = [
 # PATCH  /api/cargos/{id}/                      - Actualización parcial
 # DELETE /api/cargos/{id}/                      - Eliminar cargo
 # POST   /api/cargos/{id}/procesar_pago/        - Procesar pago
+# POST   /api/cargos/{id}/confirmar_pago/       - Confirmar pago de cargo
+# PATCH  /api/cargos/{id}/cambiar_estado/       - Cambiar estado (solo admin)
 # GET    /api/cargos/vencidos/                  - Cargos vencidos
 # GET    /api/cargos/por_propietario/           - Resumen por propietario
 # POST   /api/cargos/generar_intereses_mora/    - Generar intereses automáticos

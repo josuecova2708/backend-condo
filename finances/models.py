@@ -82,6 +82,7 @@ class EstadoCargo(models.TextChoices):
     PAGADO = 'pagado', 'Pagado'
     VENCIDO = 'vencido', 'Vencido'
     CANCELADO = 'cancelado', 'Cancelado'
+    EN_REVISION = 'en_revision', 'En Revisión'
 
 
 class Infraccion(TimeStampedModel):
