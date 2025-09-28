@@ -69,3 +69,69 @@ class VehicleOCRTrainingData(TimeStampedModel):
 
     def __str__(self):
         return f"Training: {self.placa_detectada_original} -> {self.placa_correcta}"
+
+
+class PersonProfile(TimeStampedModel):
+    """
+    Modelo para perfiles de personas registradas para reconocimiento facial.
+    """
+    PERSON_TYPE_CHOICES = [
+        ('resident', 'Residente'),
+        ('visitor', 'Visitante'),
+        ('employee', 'Empleado'),
+        ('delivery', 'Delivery'),
+        ('unknown', 'Desconocido'),
+    ]
+
+    name = models.CharField(max_length=100)
+    person_type = models.CharField(max_length=20, choices=PERSON_TYPE_CHOICES)
+    face_encoding = models.TextField(help_text="JSON con encoding facial")
+    photo = models.ImageField(upload_to='faces/')
+    is_authorized = models.BooleanField(default=False)
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='person_profiles')
+
+    class Meta:
+        db_table = 'person_profiles'
+        verbose_name = 'Perfil de Persona'
+        verbose_name_plural = 'Perfiles de Personas'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.name} - {self.get_person_type_display()}"
+
+
+class FacialAccessLog(TimeStampedModel):
+    """
+    Modelo para registrar logs de acceso facial.
+    """
+    ACCESS_RESULT_CHOICES = [
+        ('autorizado', 'Autorizado'),
+        ('denegado', 'Denegado'),
+        ('desconocido', 'Desconocido'),
+    ]
+
+    person_profile = models.ForeignKey(PersonProfile, on_delete=models.SET_NULL, null=True, blank=True, related_name='access_logs')
+    photo = models.ImageField(upload_to='access_logs/')
+    confidence_score = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    access_granted = models.BooleanField(default=False)
+    location = models.CharField(max_length=100, blank=True, default='Entrada Principal')
+    timestamp_evento = models.DateTimeField(auto_now_add=True)
+    detected_name = models.CharField(max_length=100, blank=True, help_text="Nombre detectado por el sistema")
+
+    class Meta:
+        db_table = 'facial_access_logs'
+        verbose_name = 'Log de Acceso Facial'
+        verbose_name_plural = 'Logs de Acceso Facial'
+        ordering = ['-timestamp_evento']
+
+    def __str__(self):
+        name = self.detected_name if self.detected_name else 'Desconocido'
+        return f"{name} - {self.get_access_result_display()} ({self.timestamp_evento})"
+
+    def get_access_result_display(self):
+        if self.access_granted:
+            return 'Autorizado'
+        elif self.person_profile:
+            return 'Denegado'
+        else:
+            return 'Desconocido'

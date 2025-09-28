@@ -9,15 +9,20 @@ from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from django.conf import settings
 
-from .models import Vehicle, VehicleAccessLog, VehicleOCRTrainingData
+from .models import Vehicle, VehicleAccessLog, VehicleOCRTrainingData, PersonProfile, FacialAccessLog
 from .serializers import (
     VehicleSerializer,
     VehicleAccessLogSerializer,
     VehicleOCRRequestSerializer,
     VehicleOCRResponseSerializer,
-    VehicleOCRTrainingSerializer
+    VehicleOCRTrainingSerializer,
+    PersonProfileSerializer,
+    FacialAccessLogSerializer,
+    FacialRecognitionRequestSerializer,
+    PersonRegistrationSerializer
 )
 from .services.vehicle_ocr import VehicleOCRService
+from .services.facial_recognition import FacialRecognitionService
 
 
 class VehicleViewSet(viewsets.ModelViewSet):
@@ -259,4 +264,319 @@ class VehicleOCRViewSet(viewsets.GenericViewSet):
             'version': '1.0.0',
             'supported_formats': ['JPEG', 'PNG', 'BMP'],
             'max_file_size': '10MB'
+        })
+
+
+class PersonProfileViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para gestión de perfiles de personas para reconocimiento facial.
+    """
+    queryset = PersonProfile.objects.all()
+    serializer_class = PersonProfileSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        """
+        Filtrar perfiles según permisos del usuario.
+        """
+        queryset = PersonProfile.objects.all()
+
+        # Si no es superuser, solo mostrar sus perfiles asociados
+        if not self.request.user.is_superuser:
+            queryset = queryset.filter(user=self.request.user)
+
+        return queryset.order_by('-created_at')
+
+    @action(detail=False, methods=['get'])
+    def authorized_profiles(self, request):
+        """
+        Obtener solo perfiles autorizados.
+        """
+        profiles = self.get_queryset().filter(is_authorized=True)
+        serializer = self.get_serializer(profiles, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def toggle_authorization(self, request, pk=None):
+        """
+        Autorizar/desautorizar un perfil.
+        """
+        try:
+            profile = self.get_object()
+            profile.is_authorized = not profile.is_authorized
+            profile.save()
+
+            action = "autorizado" if profile.is_authorized else "desautorizado"
+            return Response({
+                'success': True,
+                'message': f'Perfil {action} exitosamente',
+                'is_authorized': profile.is_authorized
+            })
+        except Exception as e:
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class FacialAccessLogViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet para logs de acceso facial (solo lectura).
+    """
+    queryset = FacialAccessLog.objects.all()
+    serializer_class = FacialAccessLogSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        """
+        Filtrar logs según permisos del usuario.
+        """
+        queryset = FacialAccessLog.objects.all()
+
+        # Si no es superuser, solo mostrar logs relacionados a sus perfiles
+        if not self.request.user.is_superuser:
+            queryset = queryset.filter(person_profile__user=self.request.user)
+
+        return queryset.order_by('-timestamp_evento')
+
+    @action(detail=False, methods=['get'])
+    def recent_access(self, request):
+        """
+        Obtener accesos recientes (últimas 24 horas).
+        """
+        recent_logs = self.get_queryset().filter(
+            timestamp_evento__gte=timezone.now() - timedelta(hours=24)
+        )
+        serializer = self.get_serializer(recent_logs, many=True)
+        return Response(serializer.data)
+
+
+class FacialRecognitionViewSet(viewsets.GenericViewSet):
+    """
+    ViewSet para procesamiento de reconocimiento facial.
+    """
+    permission_classes = [IsAuthenticated]
+
+    @action(detail=False, methods=['post'])
+    def identify_person(self, request):
+        """
+        Identificar persona en una imagen.
+        """
+        # Validar datos de entrada
+        request_serializer = FacialRecognitionRequestSerializer(data=request.data)
+        if not request_serializer.is_valid():
+            return Response(
+                request_serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            # Obtener imagen del request
+            imagen = request_serializer.validated_data['imagen']
+            location = request_serializer.validated_data.get('location', 'Entrada Principal')
+
+            # Guardar imagen temporalmente
+            temp_path = default_storage.save(
+                f'temp/facial_recognition/{imagen.name}',
+                ContentFile(imagen.read())
+            )
+            full_temp_path = os.path.join(settings.MEDIA_ROOT, temp_path)
+
+            # Procesar imagen con reconocimiento facial
+            recognition_result = FacialRecognitionService.process_access_request(
+                full_temp_path, location
+            )
+
+            if recognition_result['success']:
+                person_profile = recognition_result.get('person_profile')
+
+                # Preparar información del perfil si existe
+                person_info = None
+                if person_profile:
+                    person_info = PersonProfileSerializer(person_profile).data
+
+                response_data = {
+                    'success': True,
+                    'person_profile': person_info,
+                    'confidence': recognition_result.get('confidence', 0.0),
+                    'access_granted': recognition_result.get('access_granted', False),
+                    'message': recognition_result.get('message', 'Procesamiento completado'),
+                    'access_log_id': recognition_result['access_log'].id if recognition_result.get('access_log') else None
+                }
+            else:
+                response_data = {
+                    'success': False,
+                    'error': recognition_result.get('error', 'Error desconocido'),
+                    'confidence': 0.0,
+                    'access_granted': False
+                }
+
+            return Response(response_data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response(
+                {
+                    'success': False,
+                    'error': f'Error procesando imagen: {str(e)}',
+                    'confidence': 0.0,
+                    'access_granted': False
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        finally:
+            # Limpiar archivo temporal
+            try:
+                if 'full_temp_path' in locals() and os.path.exists(full_temp_path):
+                    os.remove(full_temp_path)
+            except:
+                pass
+
+    @action(detail=False, methods=['post'])
+    def register_person(self, request):
+        """
+        Registrar nueva persona en el sistema.
+        """
+        # Validar datos de entrada
+        registration_serializer = PersonRegistrationSerializer(data=request.data)
+        if not registration_serializer.is_valid():
+            return Response(
+                registration_serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            # Obtener datos del request
+            imagen = registration_serializer.validated_data['imagen']
+            name = registration_serializer.validated_data['name']
+            person_type = registration_serializer.validated_data['person_type']
+            is_authorized = registration_serializer.validated_data.get('is_authorized', False)
+            user_id = registration_serializer.validated_data.get('user')
+
+            # Obtener usuario si se especificó
+            user_instance = None
+            if user_id:
+                from apps.users.models import User
+                try:
+                    user_instance = User.objects.get(id=user_id)
+                except User.DoesNotExist:
+                    return Response({
+                        'success': False,
+                        'error': 'Usuario no encontrado'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Guardar imagen temporalmente
+            temp_path = default_storage.save(
+                f'temp/facial_registration/{imagen.name}',
+                ContentFile(imagen.read())
+            )
+            full_temp_path = os.path.join(settings.MEDIA_ROOT, temp_path)
+
+            # Registrar nueva persona
+            registration_result = FacialRecognitionService.register_new_person(
+                image_path=full_temp_path,
+                name=name,
+                person_type=person_type,
+                is_authorized=is_authorized,
+                user=user_instance
+            )
+
+            if registration_result['success']:
+                person_profile = registration_result['person_profile']
+                person_info = PersonProfileSerializer(person_profile).data
+
+                response_data = {
+                    'success': True,
+                    'person_profile': person_info,
+                    'message': registration_result.get('message', 'Persona registrada exitosamente')
+                }
+            else:
+                response_data = {
+                    'success': False,
+                    'error': registration_result.get('error', 'Error registrando persona')
+                }
+
+            return Response(response_data, status=status.HTTP_201_CREATED if registration_result['success'] else status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            return Response(
+                {
+                    'success': False,
+                    'error': f'Error registrando persona: {str(e)}'
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        finally:
+            # Limpiar archivo temporal
+            try:
+                if 'full_temp_path' in locals() and os.path.exists(full_temp_path):
+                    os.remove(full_temp_path)
+            except:
+                pass
+
+    @action(detail=False, methods=['get'])
+    def stats(self, request):
+        """
+        Obtener estadísticas de reconocimiento facial.
+        """
+        try:
+            # Estadísticas generales
+            total_profiles = PersonProfile.objects.count()
+            authorized_profiles = PersonProfile.objects.filter(is_authorized=True).count()
+            total_access_logs = FacialAccessLog.objects.count()
+
+            # Accesos recientes (últimas 24 horas)
+            recent_access = FacialAccessLog.objects.filter(
+                timestamp_evento__gte=timezone.now() - timedelta(hours=24)
+            ).count()
+
+            # Accesos autorizados vs denegados (último mes)
+            last_month = timezone.now() - timedelta(days=30)
+            monthly_logs = FacialAccessLog.objects.filter(timestamp_evento__gte=last_month)
+            authorized_access = monthly_logs.filter(access_granted=True).count()
+            denied_access = monthly_logs.filter(access_granted=False).count()
+
+            stats = {
+                'total_profiles': total_profiles,
+                'authorized_profiles': authorized_profiles,
+                'total_access_logs': total_access_logs,
+                'recent_access_24h': recent_access,
+                'monthly_stats': {
+                    'authorized_access': authorized_access,
+                    'denied_access': denied_access,
+                    'total_attempts': authorized_access + denied_access
+                }
+            }
+
+            return Response({
+                'success': True,
+                'stats': stats
+            })
+
+        except Exception as e:
+            return Response(
+                {
+                    'success': False,
+                    'error': str(e)
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=False, methods=['get'])
+    def test_service(self, request):
+        """
+        Endpoint de prueba para verificar que el servicio de reconocimiento facial funciona.
+        """
+        return Response({
+            'message': 'Servicio de reconocimiento facial funcionando',
+            'version': '1.0.0',
+            'supported_formats': ['JPEG', 'PNG', 'BMP'],
+            'max_file_size': '10MB',
+            'features': [
+                'Identificación de personas',
+                'Registro de nuevos perfiles',
+                'Control de acceso automatizado',
+                'Logs de acceso detallados'
+            ]
         })
