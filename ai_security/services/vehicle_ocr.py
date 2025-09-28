@@ -68,12 +68,29 @@ class VehicleOCRService:
             if credentials_json:
                 # Usar credenciales desde variable de entorno (producción)
                 print("[OCR DEBUG] Usando credenciales de Google Cloud desde variable de entorno")
-                # Crear archivo temporal con las credenciales
-                import tempfile
-                with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as temp_file:
-                    temp_file.write(credentials_json)
-                    temp_credentials_path = temp_file.name
-                os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = temp_credentials_path
+                try:
+                    # Crear archivo temporal con las credenciales
+                    import tempfile
+                    import json
+
+                    # Validar que el JSON sea válido
+                    if isinstance(credentials_json, str):
+                        json_data = json.loads(credentials_json)
+                    else:
+                        json_data = credentials_json
+
+                    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as temp_file:
+                        json.dump(json_data, temp_file)
+                        temp_credentials_path = temp_file.name
+
+                    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = temp_credentials_path
+                    print(f"[OCR DEBUG] Credenciales guardadas en: {temp_credentials_path}")
+
+                except Exception as cred_error:
+                    print(f"[OCR DEBUG] Error procesando credenciales JSON: {cred_error}")
+                    print(f"[OCR DEBUG] Tipo de credentials_json: {type(credentials_json)}")
+                    print(f"[OCR DEBUG] Primeros 100 chars: {str(credentials_json)[:100]}")
+                    return None, 0.0
             elif credentials_path and os.path.exists(credentials_path):
                 # Usar archivo local (desarrollo)
                 print("[OCR DEBUG] Usando credenciales de Google Cloud desde archivo local")
