@@ -3,7 +3,7 @@ from decimal import Decimal
 from django.utils import timezone
 from datetime import timedelta
 
-from .models import Infraccion, Cargo, ConfiguracionMultas, TipoInfraccion, EstadoInfraccion
+from .models import Infraccion, Cargo, TipoInfraccion, EstadoInfraccion
 from apps.users.serializers import UserBasicSerializer
 from apps.properties.serializers import PropietarioSerializer, UnidadHabitacionalSerializer
 
@@ -16,12 +16,22 @@ class InfraccionSerializer(serializers.ModelSerializer):
     unidad_info = UnidadHabitacionalSerializer(source='unidad', read_only=True)
     reportado_por_info = UserBasicSerializer(source='reportado_por', read_only=True)
 
+    # Campos para la tabla (nombres planos)
+    propietario_nombre = serializers.CharField(source='propietario.user.get_full_name', read_only=True)
+    unidad_numero = serializers.CharField(source='unidad.numero', read_only=True)
+    bloque_nombre = serializers.CharField(source='unidad.bloque.nombre', read_only=True)
+
     # Campos calculados
     puede_aplicar_multa = serializers.ReadOnlyField()
     dias_para_pago = serializers.ReadOnlyField()
     esta_vencida = serializers.ReadOnlyField()
-    tipo_infraccion_display = serializers.CharField(source='get_tipo_infraccion_display', read_only=True)
+    tipo_infraccion_nombre = serializers.CharField(source='tipo_infraccion.nombre', read_only=True)
     estado_display = serializers.CharField(source='get_estado_display', read_only=True)
+
+    # Monto calculado según tipo de infracción (campo del modelo)
+    monto_calculado = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    tipo_infraccion_monto_base = serializers.DecimalField(source='tipo_infraccion.monto_base', max_digits=10, decimal_places=2, read_only=True)
+    tipo_infraccion_monto_reincidencia = serializers.DecimalField(source='tipo_infraccion.monto_reincidencia', max_digits=10, decimal_places=2, read_only=True)
 
     class Meta:
         model = Infraccion
@@ -32,9 +42,12 @@ class InfraccionSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at',
             # Campos relacionados
             'propietario_info', 'unidad_info', 'reportado_por_info',
+            # Campos para la tabla
+            'propietario_nombre', 'unidad_numero', 'bloque_nombre',
             # Campos calculados
             'puede_aplicar_multa', 'dias_para_pago', 'esta_vencida',
-            'tipo_infraccion_display', 'estado_display'
+            'tipo_infraccion_nombre', 'estado_display', 'monto_calculado',
+            'tipo_infraccion_monto_base', 'tipo_infraccion_monto_reincidencia'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at', 'es_reincidente']
 
@@ -156,20 +169,29 @@ class CargoCreateSerializer(serializers.ModelSerializer):
         return value
 
 
-class ConfiguracionMultasSerializer(serializers.ModelSerializer):
+class TipoInfraccionSerializer(serializers.ModelSerializer):
     """
-    Serializer para configuración de multas
+    Serializer para tipos de infracciones dinámicos
     """
-    tipo_infraccion_display = serializers.CharField(source='get_tipo_infraccion_display', read_only=True)
+    diferencia_reincidencia = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
-        model = ConfiguracionMultas
+        model = TipoInfraccion
         fields = [
-            'id', 'tipo_infraccion', 'monto_base', 'monto_reincidencia',
-            'dias_para_pago', 'es_activa', 'descripcion', 'created_at', 'updated_at',
-            'tipo_infraccion_display'
+            'id', 'codigo', 'nombre', 'descripcion', 'monto_base', 'monto_reincidencia',
+            'dias_para_pago', 'es_activo', 'orden', 'created_at', 'updated_at',
+            'diferencia_reincidencia'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def get_diferencia_reincidencia(self, obj):
+        """Calcula la diferencia entre monto de reincidencia y base"""
+        diferencia = obj.monto_reincidencia - obj.monto_base
+        porcentaje = (diferencia / obj.monto_base * 100) if obj.monto_base > 0 else 0
+        return {
+            'diferencia': diferencia,
+            'porcentaje': round(porcentaje, 1)
+        }
 
     def validate_monto_base(self, value):
         if value <= Decimal('0.00'):
@@ -184,6 +206,11 @@ class ConfiguracionMultasSerializer(serializers.ModelSerializer):
     def validate_dias_para_pago(self, value):
         if value <= 0:
             raise serializers.ValidationError("Los días para pago deben ser mayor a 0")
+        return value
+
+    def validate_codigo(self, value):
+        if not value.replace('_', '').replace('-', '').isalnum():
+            raise serializers.ValidationError("El código solo puede contener letras, números, guiones y guiones bajos")
         return value
 
     def validate(self, attrs):
@@ -273,17 +300,18 @@ class InfraccionListSerializer(serializers.ModelSerializer):
     propietario_nombre = serializers.CharField(source='propietario.user.get_full_name', read_only=True)
     unidad_numero = serializers.CharField(source='unidad.numero', read_only=True)
     bloque_nombre = serializers.CharField(source='unidad.bloque.nombre', read_only=True)
-    tipo_infraccion_display = serializers.CharField(source='get_tipo_infraccion_display', read_only=True)
+    tipo_infraccion_nombre = serializers.CharField(source='tipo_infraccion.nombre', read_only=True)
     estado_display = serializers.CharField(source='get_estado_display', read_only=True)
     dias_para_pago = serializers.ReadOnlyField()
+    monto_calculado = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
 
     class Meta:
         model = Infraccion
         fields = [
-            'id', 'tipo_infraccion', 'fecha_infraccion', 'estado',
-            'monto_multa', 'fecha_limite_pago', 'es_reincidente',
+            'id', 'tipo_infraccion', 'descripcion', 'fecha_infraccion', 'estado',
+            'monto_multa', 'monto_calculado', 'fecha_limite_pago', 'es_reincidente',
             'propietario_nombre', 'unidad_numero', 'bloque_nombre',
-            'tipo_infraccion_display', 'estado_display', 'dias_para_pago'
+            'tipo_infraccion_nombre', 'estado_display', 'dias_para_pago'
         ]
 
 

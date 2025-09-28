@@ -7,14 +7,56 @@ from apps.users.models import User
 from apps.properties.models import UnidadHabitacional
 
 
-class TipoInfraccion(models.TextChoices):
-    RUIDO_EXCESIVO = 'ruido_excesivo', 'Ruido Excesivo'
-    USO_INADECUADO_AREAS = 'uso_inadecuado_areas', 'Uso Inadecuado de Áreas Comunes'
-    MASCOTA_SIN_CORREA = 'mascota_sin_correa', 'Mascota sin Correa'
-    BASURA_HORARIO = 'basura_horario', 'Basura Fuera de Horario'
-    PARQUEADERO_INCORRECTO = 'parqueadero_incorrecto', 'Parqueadero Incorrecto'
-    MODIFICACION_SIN_PERMISO = 'modificacion_sin_permiso', 'Modificación sin Permiso'
-    OTROS = 'otros', 'Otros'
+class TipoInfraccion(TimeStampedModel):
+    """
+    Modelo dinámico para tipos de infracciones
+    """
+    codigo = models.CharField(
+        max_length=50,
+        unique=True,
+        help_text="Código único para el tipo de infracción (ej: 'ruido_excesivo')"
+    )
+    nombre = models.CharField(
+        max_length=100,
+        help_text="Nombre descriptivo del tipo de infracción"
+    )
+    descripcion = models.TextField(
+        blank=True,
+        help_text="Descripción detallada del tipo de infracción"
+    )
+    monto_base = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.00'))],
+        help_text="Monto base para primera infracción"
+    )
+    monto_reincidencia = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.00'))],
+        help_text="Monto para casos de reincidencia"
+    )
+    dias_para_pago = models.PositiveIntegerField(
+        default=15,
+        help_text="Días para pagar la multa desde su aplicación"
+    )
+    es_activo = models.BooleanField(
+        default=True,
+        help_text="Si este tipo de infracción está activo"
+    )
+    orden = models.PositiveIntegerField(
+        default=0,
+        help_text="Orden de visualización"
+    )
+
+    class Meta:
+        db_table = 'tipos_infraccion'
+        verbose_name = 'Tipo de Infracción'
+        verbose_name_plural = 'Tipos de Infracción'
+        ordering = ['orden', 'nombre']
+
+    def __str__(self):
+        return self.nombre
 
 
 class EstadoInfraccion(models.TextChoices):
@@ -40,6 +82,7 @@ class EstadoCargo(models.TextChoices):
     PAGADO = 'pagado', 'Pagado'
     VENCIDO = 'vencido', 'Vencido'
     CANCELADO = 'cancelado', 'Cancelado'
+    EN_REVISION = 'en_revision', 'En Revisión'
 
 
 class Infraccion(TimeStampedModel):
@@ -61,12 +104,12 @@ class Infraccion(TimeStampedModel):
         help_text="Unidad habitacional donde ocurrió la infracción"
     )
 
-    # Campos existentes extendidos
-    tipo_infraccion = models.CharField(
-        max_length=50,
-        choices=TipoInfraccion.choices,
-        default=TipoInfraccion.OTROS,
-        help_text="Tipo específico de infracción"
+    # Campo FK definitivo
+    tipo_infraccion = models.ForeignKey(
+        TipoInfraccion,
+        on_delete=models.CASCADE,
+        related_name='infracciones',
+        help_text="Tipo de infracción"
     )
     descripcion = models.TextField(
         help_text="Descripción detallada de la infracción"
@@ -117,6 +160,14 @@ class Infraccion(TimeStampedModel):
         default=False,
         help_text="Si el propietario es reincidente en este tipo de infracción"
     )
+    monto_calculado = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.00'))],
+        null=True,
+        blank=True,
+        help_text="Monto calculado automáticamente según el tipo de infracción y reincidencia"
+    )
 
     # Override TimeStampedModel fields to map to existing database columns
     created_at = models.DateTimeField(auto_now_add=True, db_column='fecha_creacion')
@@ -129,7 +180,7 @@ class Infraccion(TimeStampedModel):
         ordering = ['-fecha_infraccion']
 
     def __str__(self):
-        return f"{self.get_tipo_infraccion_display()} - {self.propietario.user.get_full_name()}"
+        return f"{self.tipo_infraccion.nombre} - {self.propietario.user.get_full_name()}"
 
     def save(self, *args, **kwargs):
         # Auto-calcular reincidencia
@@ -140,6 +191,13 @@ class Infraccion(TimeStampedModel):
                 estado__in=[EstadoInfraccion.CONFIRMADA, EstadoInfraccion.MULTA_APLICADA, EstadoInfraccion.PAGADA]
             ).count()
             self.es_reincidente = infracciones_anteriores > 0
+
+        # Auto-calcular monto según tipo de infracción y reincidencia
+        if self.tipo_infraccion and not self.monto_calculado:
+            if self.es_reincidente:
+                self.monto_calculado = self.tipo_infraccion.monto_reincidencia
+            else:
+                self.monto_calculado = self.tipo_infraccion.monto_base
 
         super().save(*args, **kwargs)
 
@@ -164,20 +222,26 @@ class Infraccion(TimeStampedModel):
         return False
 
 
-class Cargo(TimeStampedModel):
+class Cargo(models.Model):
     """
     Modelo extendido para cargos con campos adicionales para CICLO 2
     """
+    # Campos de timestamp que coinciden con la base de datos existente
+    created_at = models.DateTimeField(auto_now_add=True, db_column='fecha_creacion')
+    updated_at = models.DateTimeField(auto_now=True, db_column='fecha_actualizacion')
+
     propietario = models.ForeignKey(
         'properties.Propietario',
         on_delete=models.CASCADE,
         related_name='cargos',
+        db_column='id_propietario',
         help_text="Propietario al que se le aplica el cargo"
     )
     unidad = models.ForeignKey(
         UnidadHabitacional,
         on_delete=models.CASCADE,
         related_name='cargos',
+        db_column='unidad_id',
         help_text="Unidad habitacional asociada al cargo"
     )
 
@@ -335,45 +399,10 @@ class Cargo(TimeStampedModel):
         return None
 
 
-class ConfiguracionMultas(TimeStampedModel):
-    """
-    Configuración global para el sistema de multas
-    """
-    tipo_infraccion = models.CharField(
-        max_length=50,
-        choices=TipoInfraccion.choices,
-        unique=True,
-        help_text="Tipo de infracción a configurar"
-    )
-    monto_base = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.00'))],
-        help_text="Monto base de la multa"
-    )
-    monto_reincidencia = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.00'))],
-        help_text="Monto para casos de reincidencia"
-    )
-    dias_para_pago = models.PositiveIntegerField(
-        default=15,
-        help_text="Días para pagar la multa desde su aplicación"
-    )
-    es_activa = models.BooleanField(
-        default=True,
-        help_text="Si esta configuración está activa"
-    )
-    descripcion = models.TextField(
-        blank=True,
-        help_text="Descripción de la infracción y su penalización"
-    )
-
-    class Meta:
-        db_table = 'configuracion_multas'
-        verbose_name = 'Configuración de Multa'
-        verbose_name_plural = 'Configuraciones de Multas'
-
-    def __str__(self):
-        return f"{self.get_tipo_infraccion_display()} - {self.monto_base}"
+# NOTA: ConfiguracionMultas será reemplazado por TipoInfraccion
+# Mantenemos temporalmente para migración
+# class ConfiguracionMultas(TimeStampedModel):
+#     """
+#     Configuración global para el sistema de multas - DEPRECADO
+#     """
+#     pass

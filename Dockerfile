@@ -8,6 +8,7 @@ ENV PYTHONUNBUFFERED 1
 WORKDIR /app
 
 # Install system dependencies including CMake and OpenCV dependencies
+# Install system dependencies
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         postgresql-client \
@@ -32,6 +33,10 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir opencv-python-headless
 
 # Then install the rest of dependencies
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy project

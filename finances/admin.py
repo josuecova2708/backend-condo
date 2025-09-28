@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.utils.html import format_html
 from django.urls import reverse
 from django.utils import timezone
-from .models import Infraccion, Cargo, ConfiguracionMultas
+from .models import Infraccion, Cargo, TipoInfraccion
 
 
 @admin.register(Infraccion)
@@ -185,24 +185,25 @@ class CargoAdmin(admin.ModelAdmin):
     generar_interes_mora.short_description = "Generar intereses de mora"
 
 
-@admin.register(ConfiguracionMultas)
-class ConfiguracionMultasAdmin(admin.ModelAdmin):
+@admin.register(TipoInfraccion)
+class TipoInfraccionAdmin(admin.ModelAdmin):
     """
-    Administración de configuraciones de multas
+    Administración de tipos de infracciones
     """
     list_display = [
-        'tipo_infraccion', 'monto_base', 'monto_reincidencia',
-        'dias_para_pago', 'es_activa', 'diferencia_reincidencia'
+        'codigo', 'nombre', 'monto_base', 'monto_reincidencia',
+        'dias_para_pago', 'es_activo', 'orden', 'diferencia_reincidencia'
     ]
-    list_filter = ['es_activa', 'tipo_infraccion']
-    search_fields = ['descripcion']
+    list_filter = ['es_activo']
+    search_fields = ['codigo', 'nombre', 'descripcion']
     readonly_fields = ['id', 'created_at', 'updated_at', 'diferencia_reincidencia']
+    ordering = ['orden', 'nombre']
 
     fieldsets = (
-        ('Configuración de Multa', {
-            'fields': ('tipo_infraccion', 'descripcion', 'es_activa')
+        ('Información Principal', {
+            'fields': ('codigo', 'nombre', 'descripcion', 'es_activo', 'orden')
         }),
-        ('Montos', {
+        ('Configuración de Multas', {
             'fields': ('monto_base', 'monto_reincidencia', 'diferencia_reincidencia')
         }),
         ('Términos', {
@@ -220,14 +221,14 @@ class ConfiguracionMultasAdmin(admin.ModelAdmin):
         return f"{diferencia:.2f} ({porcentaje:.1f}% más)"
     diferencia_reincidencia.short_description = 'Diferencia Reincidencia'
 
-    actions = ['activar_configuraciones', 'desactivar_configuraciones']
+    actions = ['activar_tipos', 'desactivar_tipos']
 
-    def activar_configuraciones(self, request, queryset):
-        count = queryset.update(es_activa=True)
-        self.message_user(request, f'{count} configuraciones activadas.')
-    activar_configuraciones.short_description = "Activar configuraciones"
+    def activar_tipos(self, request, queryset):
+        count = queryset.update(es_activo=True)
+        self.message_user(request, f'{count} tipos de infracción activados.')
+    activar_tipos.short_description = "Activar tipos"
 
-    def desactivar_configuraciones(self, request, queryset):
-        count = queryset.update(es_activa=False)
-        self.message_user(request, f'{count} configuraciones desactivadas.')
-    desactivar_configuraciones.short_description = "Desactivar configuraciones"
+    def desactivar_tipos(self, request, queryset):
+        count = queryset.update(es_activo=False)
+        self.message_user(request, f'{count} tipos de infracción desactivados.')
+    desactivar_tipos.short_description = "Desactivar tipos"

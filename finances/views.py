@@ -7,14 +7,14 @@ from decimal import Decimal
 from django.db.models import Q, Sum, Count
 from django.utils import timezone
 
-from .models import Infraccion, Cargo, ConfiguracionMultas, EstadoInfraccion, EstadoCargo, TipoCargo
+from .models import Infraccion, Cargo, TipoInfraccion, EstadoInfraccion, EstadoCargo, TipoCargo
 from .serializers import (
     InfraccionSerializer, InfraccionCreateSerializer, InfraccionListSerializer,
     CargoSerializer, CargoCreateSerializer, CargoListSerializer,
-    ConfiguracionMultasSerializer, AplicarMultaSerializer, ProcesarPagoSerializer,
+    TipoInfraccionSerializer, AplicarMultaSerializer, ProcesarPagoSerializer,
     EstadisticasInfraccionesSerializer
 )
-from .services import MultasService, ConfiguracionMultasService
+from .services import MultasService, TipoInfraccionService
 
 
 class InfraccionViewSet(viewsets.ModelViewSet):
@@ -44,10 +44,16 @@ class InfraccionViewSet(viewsets.ModelViewSet):
         queryset = super().get_queryset()
         user = self.request.user
 
-        # Si el usuario tiene rol de propietario, solo ver sus infracciones
-        if hasattr(user, 'propiedades_owned') and user.propiedades_owned.exists():
-            if not user.is_staff and not user.has_permission('finances.view_all_infracciones'):
-                queryset = queryset.filter(propietario__user=user)
+        # Si el usuario no es staff, solo ver sus propias infracciones
+        if not user.is_staff:
+            try:
+                # Buscar el propietario asociado al usuario
+                from apps.properties.models import Propietario
+                propietario = Propietario.objects.get(user=user)
+                queryset = queryset.filter(propietario=propietario)
+            except Propietario.DoesNotExist:
+                # Si no es propietario, no mostrar nada
+                queryset = queryset.none()
 
         return queryset
 
@@ -132,6 +138,101 @@ class InfraccionViewSet(viewsets.ModelViewSet):
         serializer = EstadisticasInfraccionesSerializer(estadisticas)
         return Response(serializer.data)
 
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def confirmar_pago(self, request, pk=None):
+        """Confirmar pago de una infracción por parte del propietario"""
+        infraccion = self.get_object()
+
+        # Verificar que el usuario sea el propietario de la infracción o admin
+        if not request.user.is_staff and infraccion.propietario.user != request.user:
+            return Response(
+                {'error': 'No tienes permisos para confirmar el pago de esta infracción'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Verificar que la infracción pueda ser pagada
+        if infraccion.estado not in [EstadoInfraccion.MULTA_APLICADA, EstadoInfraccion.REGISTRADA]:
+            return Response(
+                {'error': 'Solo se puede confirmar el pago de infracciones registradas o con multa aplicada'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            # Cambiar estado a EN_REVISION
+            infraccion.estado = EstadoInfraccion.EN_REVISION
+            infraccion.save()
+
+            # Actualizar cargo relacionado si existe
+            cargo_multa = Cargo.objects.filter(infraccion=infraccion).first()
+            if cargo_multa:
+                cargo_multa.estado = EstadoCargo.EN_REVISION
+                cargo_multa.save()
+
+            serializer = InfraccionSerializer(infraccion)
+            return Response({
+                'message': 'Pago confirmado. La infracción está en revisión.',
+                'infraccion': serializer.data
+            })
+        except Exception as e:
+            return Response(
+                {'error': f'Error al confirmar el pago: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=True, methods=['patch'], permission_classes=[permissions.IsAuthenticated])
+    def cambiar_estado(self, request, pk=None):
+        """Permitir a los administradores cambiar el estado de una infracción"""
+        # Solo administradores pueden cambiar estados
+        if not request.user.is_staff:
+            return Response(
+                {'error': 'Solo los administradores pueden cambiar el estado de infracciones'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        infraccion = self.get_object()
+        nuevo_estado = request.data.get('estado')
+        observaciones = request.data.get('observaciones_admin', '')
+
+        # Validar que el nuevo estado es válido
+        if nuevo_estado not in [choice[0] for choice in EstadoInfraccion.choices]:
+            return Response(
+                {'error': f'Estado inválido: {nuevo_estado}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            estado_anterior = infraccion.estado
+            infraccion.estado = nuevo_estado
+
+            # Agregar observaciones si se proporcionan
+            if observaciones:
+                if infraccion.observaciones_admin:
+                    infraccion.observaciones_admin += f"\n[{timezone.now().strftime('%Y-%m-%d %H:%M')}] {observaciones}"
+                else:
+                    infraccion.observaciones_admin = f"[{timezone.now().strftime('%Y-%m-%d %H:%M')}] {observaciones}"
+
+            infraccion.save()
+
+            # Si se está marcando como pagada, actualizar cargo relacionado
+            if nuevo_estado == EstadoInfraccion.PAGADA:
+                cargo_multa = Cargo.objects.filter(infraccion=infraccion).first()
+                if cargo_multa and cargo_multa.estado != EstadoCargo.PAGADO:
+                    cargo_multa.estado = EstadoCargo.PAGADO
+                    cargo_multa.monto_pagado = cargo_multa.monto
+                    cargo_multa.save()
+
+            serializer = InfraccionSerializer(infraccion)
+            return Response({
+                'message': f'Estado cambiado de {estado_anterior} a {nuevo_estado}',
+                'infraccion': serializer.data
+            })
+
+        except Exception as e:
+            return Response(
+                {'error': f'Error al cambiar el estado: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
 
 class CargoViewSet(viewsets.ModelViewSet):
     """
@@ -160,10 +261,16 @@ class CargoViewSet(viewsets.ModelViewSet):
         queryset = super().get_queryset()
         user = self.request.user
 
-        # Si el usuario tiene rol de propietario, solo ver sus cargos
-        if hasattr(user, 'propiedades_owned') and user.propiedades_owned.exists():
-            if not user.is_staff and not user.has_permission('finances.view_all_cargos'):
-                queryset = queryset.filter(propietario__user=user)
+        # Si el usuario no es staff, solo ver sus propios cargos
+        if not user.is_staff:
+            try:
+                # Buscar el propietario asociado al usuario
+                from apps.properties.models import Propietario
+                propietario = Propietario.objects.get(user=user)
+                queryset = queryset.filter(propietario=propietario)
+            except Propietario.DoesNotExist:
+                # Si no es propietario, no mostrar nada
+                queryset = queryset.none()
 
         return queryset
 
@@ -254,40 +361,152 @@ class CargoViewSet(viewsets.ModelViewSet):
                 'mensaje': 'No se encontraron cargos elegibles para generar intereses de mora'
             })
 
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def confirmar_pago(self, request, pk=None):
+        """Confirmar pago de un cargo por parte del propietario"""
+        cargo = self.get_object()
 
-class ConfiguracionMultasViewSet(viewsets.ModelViewSet):
+        # Verificar que el usuario sea el propietario del cargo o admin
+        if not request.user.is_staff and cargo.propietario.user != request.user:
+            return Response(
+                {'error': 'No tienes permisos para confirmar el pago de este cargo'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Verificar que el cargo esté pendiente o parcialmente pagado
+        if cargo.estado not in [EstadoCargo.PENDIENTE, EstadoCargo.PARCIALMENTE_PAGADO, EstadoCargo.VENCIDO]:
+            return Response(
+                {'error': 'Solo se puede confirmar el pago de cargos pendientes'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            # Cambiar estado a EN_REVISION
+            cargo.estado = EstadoCargo.EN_REVISION
+            cargo.save()
+
+            return Response({
+                'message': 'Pago confirmado. El cargo está en revisión.',
+                'cargo': {
+                    'id': cargo.id,
+                    'estado': cargo.estado,
+                    'estado_display': cargo.get_estado_display()
+                }
+            })
+        except Exception as e:
+            return Response(
+                {'error': f'Error al confirmar el pago: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=True, methods=['patch'], permission_classes=[permissions.IsAuthenticated])
+    def cambiar_estado(self, request, pk=None):
+        """Permitir a los administradores cambiar el estado de un cargo"""
+        # Solo administradores pueden cambiar estados
+        if not request.user.is_staff:
+            return Response(
+                {'error': 'Solo los administradores pueden cambiar el estado de cargos'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        cargo = self.get_object()
+        nuevo_estado = request.data.get('estado')
+        observaciones = request.data.get('observaciones', '')
+        monto_pagado = request.data.get('monto_pagado')
+
+        # Validar que el nuevo estado es válido
+        if nuevo_estado not in [choice[0] for choice in EstadoCargo.choices]:
+            return Response(
+                {'error': f'Estado inválido: {nuevo_estado}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            estado_anterior = cargo.estado
+            cargo.estado = nuevo_estado
+
+            # Si se está marcando como pagado, establecer monto_pagado al monto total
+            if nuevo_estado == EstadoCargo.PAGADO:
+                if monto_pagado is not None:
+                    cargo.monto_pagado = Decimal(str(monto_pagado))
+                else:
+                    cargo.monto_pagado = cargo.monto
+
+            # Si se proporciona un monto_pagado específico
+            elif monto_pagado is not None:
+                cargo.monto_pagado = Decimal(str(monto_pagado))
+                # Actualizar estado según el monto pagado
+                if cargo.monto_pagado >= cargo.monto:
+                    cargo.estado = EstadoCargo.PAGADO
+                elif cargo.monto_pagado > Decimal('0.00'):
+                    cargo.estado = EstadoCargo.PARCIALMENTE_PAGADO
+
+            # Agregar observaciones si se proporcionan
+            if observaciones:
+                if cargo.observaciones:
+                    cargo.observaciones += f"\n[{timezone.now().strftime('%Y-%m-%d %H:%M')}] {observaciones}"
+                else:
+                    cargo.observaciones = f"[{timezone.now().strftime('%Y-%m-%d %H:%M')}] {observaciones}"
+
+            cargo.save()
+
+            # Si el cargo está relacionado con una infracción y se marca como pagado, actualizar la infracción
+            if nuevo_estado == EstadoCargo.PAGADO and cargo.infraccion:
+                infraccion = cargo.infraccion
+                if infraccion.estado != EstadoInfraccion.PAGADA:
+                    infraccion.estado = EstadoInfraccion.PAGADA
+                    infraccion.save()
+
+            serializer = CargoSerializer(cargo)
+            return Response({
+                'message': f'Estado cambiado de {estado_anterior} a {nuevo_estado}',
+                'cargo': serializer.data
+            })
+
+        except Exception as e:
+            return Response(
+                {'error': f'Error al cambiar el estado: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class TipoInfraccionViewSet(viewsets.ModelViewSet):
     """
-    ViewSet para gestionar configuraciones de multas
+    ViewSet para gestionar tipos de infracciones dinámicos
     """
-    queryset = ConfiguracionMultas.objects.all().order_by('tipo_infraccion')
-    serializer_class = ConfiguracionMultasSerializer
+    queryset = TipoInfraccion.objects.all().order_by('orden', 'nombre')
     permission_classes = [permissions.IsAuthenticated]
 
     filter_backends = [DjangoFilterBackend, OrderingFilter]
-    filterset_fields = ['tipo_infraccion', 'es_activa']
-    ordering_fields = ['tipo_infraccion', 'monto_base', 'monto_reincidencia']
+    filterset_fields = ['es_activo']
+    ordering_fields = ['orden', 'nombre', 'monto_base', 'monto_reincidencia']
+
+    def get_serializer_class(self):
+        """Usar diferentes serializers según la acción"""
+        # Por ahora usamos el mismo, más adelante podemos crear específicos
+        return TipoInfraccionSerializer
 
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
-    def activas(self, request):
-        """Obtener solo configuraciones activas"""
-        configuraciones = ConfiguracionMultasService.obtener_configuraciones_activas()
-        serializer = ConfiguracionMultasSerializer(configuraciones, many=True)
+    def activos(self, request):
+        """Obtener solo tipos activos"""
+        tipos = TipoInfraccion.objects.filter(es_activo=True).order_by('orden', 'nombre')
+        serializer = TipoInfraccionSerializer(tipos, many=True)
         return Response(serializer.data)
 
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def activar(self, request, pk=None):
-        """Activar una configuración de multa"""
-        configuracion = self.get_object()
-        configuracion.es_activa = True
-        configuracion.save()
-        serializer = ConfiguracionMultasSerializer(configuracion)
+        """Activar un tipo de infracción"""
+        tipo = self.get_object()
+        tipo.es_activo = True
+        tipo.save()
+        serializer = TipoInfraccionSerializer(tipo)
         return Response(serializer.data)
 
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def desactivar(self, request, pk=None):
-        """Desactivar una configuración de multa"""
-        configuracion = self.get_object()
-        configuracion.es_activa = False
-        configuracion.save()
-        serializer = ConfiguracionMultasSerializer(configuracion)
+        """Desactivar un tipo de infracción"""
+        tipo = self.get_object()
+        tipo.es_activo = False
+        tipo.save()
+        serializer = TipoInfraccionSerializer(tipo)
         return Response(serializer.data)
