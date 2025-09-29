@@ -6,7 +6,8 @@ from .views import (
     VehicleOCRViewSet,
     PersonProfileViewSet,
     FacialAccessLogViewSet,
-    FacialRecognitionViewSet
+    FacialRecognitionViewSet,
+    CameraViewSet
 )
 
 # Crear router para las APIs
@@ -20,6 +21,9 @@ router.register(r'ocr', VehicleOCRViewSet, basename='vehicle-ocr')
 router.register(r'facial-recognition', FacialRecognitionViewSet, basename='facial-recognition')
 router.register(r'person-profiles', PersonProfileViewSet, basename='person-profile')
 router.register(r'facial-access-logs', FacialAccessLogViewSet, basename='facial-access-log')
+
+# Camera endpoints
+router.register(r'cameras', CameraViewSet, basename='camera')
 
 app_name = 'ai_security'
 
