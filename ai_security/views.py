@@ -22,7 +22,7 @@ from .serializers import (
     PersonRegistrationSerializer
 )
 from .services.vehicle_ocr import VehicleOCRService
-from .services.facial_recognition import FacialRecognitionService
+from .services.aws_facial_recognition import AWSFacialRecognitionService
 
 
 class VehicleViewSet(viewsets.ModelViewSet):
@@ -318,6 +318,34 @@ class PersonProfileViewSet(viewsets.ModelViewSet):
                 'error': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    def destroy(self, request, *args, **kwargs):
+        """
+        Eliminar perfil de persona incluyendo su Face ID en AWS Rekognition.
+        """
+        try:
+            profile = self.get_object()
+            aws_service = AWSFacialRecognitionService()
+
+            # Eliminar usando el servicio AWS
+            success = aws_service.delete_person_profile(profile)
+
+            if success:
+                return Response({
+                    'success': True,
+                    'message': f'Perfil {profile.name} eliminado exitosamente'
+                })
+            else:
+                return Response({
+                    'success': False,
+                    'error': 'Error eliminando perfil de AWS Rekognition'
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        except Exception as e:
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 class FacialAccessLogViewSet(viewsets.ReadOnlyModelViewSet):
     """
@@ -382,8 +410,9 @@ class FacialRecognitionViewSet(viewsets.GenericViewSet):
             )
             full_temp_path = os.path.join(settings.MEDIA_ROOT, temp_path)
 
-            # Procesar imagen con reconocimiento facial
-            recognition_result = FacialRecognitionService.process_access_request(
+            # Procesar imagen con reconocimiento facial usando AWS Rekognition
+            aws_service = AWSFacialRecognitionService()
+            recognition_result = aws_service.process_access_request(
                 full_temp_path, location
             )
 
@@ -472,8 +501,9 @@ class FacialRecognitionViewSet(viewsets.GenericViewSet):
             )
             full_temp_path = os.path.join(settings.MEDIA_ROOT, temp_path)
 
-            # Registrar nueva persona
-            registration_result = FacialRecognitionService.register_new_person(
+            # Registrar nueva persona usando AWS Rekognition
+            aws_service = AWSFacialRecognitionService()
+            registration_result = aws_service.register_new_person(
                 image_path=full_temp_path,
                 name=name,
                 person_type=person_type,

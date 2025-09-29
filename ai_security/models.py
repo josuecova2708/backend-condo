@@ -85,7 +85,8 @@ class PersonProfile(TimeStampedModel):
 
     name = models.CharField(max_length=100)
     person_type = models.CharField(max_length=20, choices=PERSON_TYPE_CHOICES)
-    face_encoding = models.TextField(help_text="JSON con encoding facial")
+    face_encoding = models.TextField(help_text="JSON con encoding facial", null=True, blank=True)
+    aws_face_id = models.CharField(max_length=100, help_text="AWS Rekognition Face ID", null=True, blank=True)
     photo = models.ImageField(upload_to='faces/')
     is_authorized = models.BooleanField(default=False)
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='person_profiles')
