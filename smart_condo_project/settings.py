@@ -82,6 +82,7 @@ INSTALLED_APPS = [
     'finances',
     'areas_comunes',
     'mantenimiento',
+    'notifications',
 ]
 
 MIDDLEWARE = [
@@ -186,6 +187,11 @@ AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID', default=None)
 AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY', default=None)
 AWS_DEFAULT_REGION = config('AWS_DEFAULT_REGION', default='us-east-1')
 AWS_REKOGNITION_COLLECTION_ID = config('AWS_REKOGNITION_COLLECTION_ID', default='smart-condominium-faces')
+
+# Firebase Configuration
+FIREBASE_PROJECT_ID = config('FIREBASE_PROJECT_ID', default='smart-condominium-d84b9')
+FIREBASE_CREDENTIALS_JSON = config('FIREBASE_CREDENTIALS_JSON', default=None)
+FIREBASE_CREDENTIALS_PATH = BASE_DIR / 'firebase-credentials.json'
 
 # Django REST Framework Configuration
 REST_FRAMEWORK = {

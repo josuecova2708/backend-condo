@@ -28,35 +28,10 @@ numpy==1.26.4
 opencv-python-headless==4.8.1.78
 dlib==19.24.4
 google-cloud-vision==3.8.0
-boto3==1.35.36         
+boto3==1.35.36
 
-# Production server
-gunicorn==23.0.0
-
-# Core Django
-Django==4.2.24
-djangorestframework==3.16.1
-djangorestframework_simplejwt==5.5.1
-
-# Database
-psycopg2-binary==2.9.10
-dj-database-url==3.0.1
-
-# Configuration
-python-decouple==3.8
-
-# CORS
-django-cors-headers==4.8.0
-
-# Filtering and Extensions
-django-filter==25.1
-django-extensions==4.1
-
-# API Documentation
-drf-spectacular==0.28.0
-
-# Image handling
-Pillow==11.3.0
+# Firebase for push notifications
+firebase-admin==6.5.0
 
 # Production server
 gunicorn==23.0.0

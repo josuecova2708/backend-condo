@@ -65,6 +65,7 @@ urlpatterns = [
     path('api/finances/', include('finances.urls')),
     path('api/areas-comunes/', include('areas_comunes.urls')),
     path('api/mantenimiento/', include('mantenimiento.urls')),
+    path('api/notifications/', include('notifications.urls')),
 ]
 
 # Media files (for development)

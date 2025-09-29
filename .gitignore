@@ -11,7 +11,11 @@ venv/
 # Ignorar archivos de configuración sensibles
 .env
 google-credentials.json
+firebase-credentials.json
 
 # Ignorar archivos de medios y estáticos
 media/
 staticfiles/
+
+# Ignorar archivos de prueba
+test_notifications.py
