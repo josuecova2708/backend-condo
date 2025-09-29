@@ -1,5 +1,8 @@
 from rest_framework import serializers
-from .models import Vehicle, VehicleAccessLog, PersonProfile, FacialAccessLog
+from .models import (
+    Vehicle, VehicleAccessLog, PersonProfile, FacialAccessLog,
+    TipoActividad, AnalisisVideo, DeteccionActividad
+)
 from apps.users.serializers import UserSerializer
 
 
@@ -294,3 +297,90 @@ class FacialRecognitionResponseSerializer(serializers.Serializer):
     message = serializers.CharField(max_length=200)
     access_log_id = serializers.IntegerField(allow_null=True)
     error = serializers.CharField(max_length=500, allow_null=True)
+
+
+# ==========================================
+# SERIALIZERS PARA ANÁLISIS DE ACTIVIDADES SOSPECHOSAS
+# ==========================================
+
+class TipoActividadSerializer(serializers.ModelSerializer):
+    """Serializer para tipos de actividades detectables"""
+
+    categoria_display = serializers.CharField(source='get_categoria_display', read_only=True)
+
+    class Meta:
+        model = TipoActividad
+        fields = [
+            'id', 'nombre', 'categoria', 'categoria_display',
+            'descripcion', 'palabras_clave', 'activo', 'created_at'
+        ]
+        read_only_fields = ['created_at']
+
+
+class DeteccionActividadSerializer(serializers.ModelSerializer):
+    """Serializer para detecciones de actividades específicas"""
+
+    tipo_actividad = TipoActividadSerializer(read_only=True)
+    duracion_segundos = serializers.ReadOnlyField()
+
+    class Meta:
+        model = DeteccionActividad
+        fields = [
+            'id', 'tipo_actividad', 'timestamp_inicio', 'timestamp_fin',
+            'duracion_segundos', 'confianza', 'objetos_detectados',
+            'bounding_boxes', 'aviso_generado', 'aviso_id', 'created_at'
+        ]
+        read_only_fields = ['created_at']
+
+
+class AnalisisVideoSerializer(serializers.ModelSerializer):
+    """Serializer para análisis de videos"""
+
+    detecciones = DeteccionActividadSerializer(many=True, read_only=True)
+    usuario_nombre = serializers.CharField(source='usuario.get_full_name', read_only=True)
+    estado_display = serializers.CharField(source='get_estado_display', read_only=True)
+
+    class Meta:
+        model = AnalisisVideo
+        fields = [
+            'id', 'camera_id', 'video_name', 'video_url', 'estado',
+            'estado_display', 'job_id', 'iniciado_at', 'completado_at',
+            'usuario', 'usuario_nombre', 'actividades_detectadas',
+            'confianza_promedio', 'error_mensaje', 'detecciones'
+        ]
+        read_only_fields = [
+            'job_id', 'iniciado_at', 'completado_at', 'actividades_detectadas',
+            'confianza_promedio', 'error_mensaje', 'detecciones'
+        ]
+
+
+class IniciarAnalisisSerializer(serializers.Serializer):
+    """Serializer para iniciar análisis de video"""
+
+    camera_id = serializers.CharField(max_length=20)
+    video_name = serializers.CharField(max_length=255)
+
+    def validate_camera_id(self, value):
+        """Validar que sea una cámara válida"""
+        valid_cameras = ['camara1', 'camara2', 'camara3']
+        if value not in valid_cameras:
+            raise serializers.ValidationError(f'Cámara inválida. Debe ser una de: {valid_cameras}')
+        return value
+
+    def validate_video_name(self, value):
+        """Validar nombre del video"""
+        if not value.endswith(('.mp4', '.avi', '.mov')):
+            raise serializers.ValidationError('El video debe tener extensión .mp4, .avi o .mov')
+        return value
+
+
+class EstadisticasAnalisisSerializer(serializers.Serializer):
+    """Serializer para estadísticas de análisis"""
+
+    total_analisis = serializers.IntegerField()
+    analisis_completados = serializers.IntegerField()
+    analisis_procesando = serializers.IntegerField()
+    total_detecciones = serializers.IntegerField()
+    detecciones_por_categoria = serializers.DictField()
+    confianza_promedio = serializers.FloatField()
+    avisos_generados = serializers.IntegerField()
