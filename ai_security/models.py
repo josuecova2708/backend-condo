@@ -136,3 +136,114 @@ class FacialAccessLog(TimeStampedModel):
             return 'Denegado'
         else:
             return 'Desconocido'
+
+
+# ==========================================
+# MODELOS PARA DETECCIÓN DE ACTIVIDADES SOSPECHOSAS
+# ==========================================
+
+class TipoActividad(models.Model):
+    """Tipos de actividades que se pueden detectar"""
+
+    CATEGORIA_CHOICES = [
+        ('SOSPECHOSA', 'Actividad Sospechosa'),
+        ('ACCIDENTE', 'Accidente Vehicular'),
+        ('ANIMAL', 'Animal Suelto'),
+    ]
+
+    nombre = models.CharField(max_length=100, unique=True)
+    categoria = models.CharField(max_length=20, choices=CATEGORIA_CHOICES)
+    descripcion = models.TextField(blank=True)
+    palabras_clave = models.TextField(
+        help_text="Palabras clave separadas por comas para detección en Rekognition"
+    )
+    activo = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'tipos_actividad'
+        verbose_name = 'Tipo de Actividad'
+        verbose_name_plural = 'Tipos de Actividad'
+        ordering = ['categoria', 'nombre']
+
+    def __str__(self):
+        return f"{self.get_categoria_display()}: {self.nombre}"
+
+
+class AnalisisVideo(models.Model):
+    """Análisis de video realizado con Amazon Rekognition"""
+
+    ESTADO_CHOICES = [
+        ('PENDIENTE', 'Pendiente'),
+        ('PROCESANDO', 'Procesando'),
+        ('COMPLETADO', 'Completado'),
+        ('ERROR', 'Error'),
+    ]
+
+    # Información del video
+    camera_id = models.CharField(max_length=20)
+    video_name = models.CharField(max_length=255)
+    video_url = models.URLField()
+
+    # Análisis
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='PENDIENTE')
+    job_id = models.CharField(max_length=255, blank=True, help_text="ID del job en Rekognition")
+
+    # Timestamps
+    iniciado_at = models.DateTimeField(auto_now_add=True)
+    completado_at = models.DateTimeField(null=True, blank=True)
+
+    # Usuario que inició el análisis
+    usuario = models.ForeignKey('users.User', on_delete=models.CASCADE)
+
+    # Resultados
+    actividades_detectadas = models.IntegerField(default=0)
+    confianza_promedio = models.FloatField(null=True, blank=True)
+
+    # Errores
+    error_mensaje = models.TextField(blank=True)
+
+    class Meta:
+        db_table = 'analisis_videos'
+        verbose_name = 'Análisis de Video'
+        verbose_name_plural = 'Análisis de Videos'
+        ordering = ['-iniciado_at']
+
+    def __str__(self):
+        return f"{self.camera_id}/{self.video_name} - {self.get_estado_display()}"
+
+
+class DeteccionActividad(models.Model):
+    """Detección específica de una actividad en un video"""
+
+    analisis = models.ForeignKey(AnalisisVideo, on_delete=models.CASCADE, related_name='detecciones')
+    tipo_actividad = models.ForeignKey(TipoActividad, on_delete=models.CASCADE)
+
+    # Detalles de la detección
+    timestamp_inicio = models.FloatField(help_text="Segundo del video donde inicia la actividad")
+    timestamp_fin = models.FloatField(help_text="Segundo del video donde termina la actividad")
+    confianza = models.FloatField(help_text="Nivel de confianza de 0 a 100")
+
+    # Objetos detectados
+    objetos_detectados = models.JSONField(default=list, help_text="Lista de objetos detectados")
+    bounding_boxes = models.JSONField(default=list, help_text="Coordenadas de los objetos")
+
+    # Estado del aviso
+    aviso_generado = models.BooleanField(default=False)
+    aviso_id = models.IntegerField(null=True, blank=True, help_text="ID del aviso generado")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'detecciones_actividad'
+        verbose_name = 'Detección de Actividad'
+        verbose_name_plural = 'Detecciones de Actividad'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.tipo_actividad.nombre} - {self.confianza:.1f}% confianza"
+
+    @property
+    def duracion_segundos(self):
+        """Duración de la actividad detectada en segundos"""
+        return self.timestamp_fin - self.timestamp_inicio

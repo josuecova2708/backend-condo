@@ -9,6 +9,7 @@ from .views import (
     FacialRecognitionViewSet,
     CameraViewSet
 )
+from .views_actividadsospechosa import ActividadSospechosaViewSet
 
 # Crear router para las APIs
 router = DefaultRouter()
@@ -24,6 +25,9 @@ router.register(r'facial-access-logs', FacialAccessLogViewSet, basename='facial-
 
 # Camera endpoints
 router.register(r'cameras', CameraViewSet, basename='camera')
+
+# Suspicious activity endpoints
+router.register(r'actividad-sospechosa', ActividadSospechosaViewSet, basename='actividad-sospechosa')
 
 app_name = 'ai_security'
 

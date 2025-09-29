@@ -11,7 +11,10 @@ from django.conf import settings
 import boto3
 from botocore.exceptions import ClientError
 
-from .models import Vehicle, VehicleAccessLog, VehicleOCRTrainingData, PersonProfile, FacialAccessLog
+from .models import (
+    Vehicle, VehicleAccessLog, VehicleOCRTrainingData, PersonProfile, FacialAccessLog,
+    TipoActividad, AnalisisVideo, DeteccionActividad
+)
 from .serializers import (
     VehicleSerializer,
     VehicleAccessLogSerializer,
@@ -21,10 +24,17 @@ from .serializers import (
     PersonProfileSerializer,
     FacialAccessLogSerializer,
     FacialRecognitionRequestSerializer,
-    PersonRegistrationSerializer
+    PersonRegistrationSerializer,
+    TipoActividadSerializer,
+    AnalisisVideoSerializer,
+    DeteccionActividadSerializer,
+    IniciarAnalisisSerializer,
+    EstadisticasAnalisisSerializer
 )
 from .services.vehicle_ocr import VehicleOCRService
 from .services.aws_facial_recognition import AWSFacialRecognitionService
+from .services.video_analysis import VideoAnalysisService
+from .views_actividadsospechosa import ActividadSospechosaViewSet
 
 
 class VehicleViewSet(viewsets.ModelViewSet):
