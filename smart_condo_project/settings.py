@@ -29,7 +29,7 @@ SECRET_KEY = config('SECRET_KEY')
 DEBUG = config('DEBUG', default=False, cast=bool)
 
 # Parse ALLOWED_HOSTS from environment variable (comma-separated)
-# En Coolify agrega tu dominio aquí: ALLOWED_HOSTS=tu-dominio.coolify.io
+# En Coolify agrega: ALLOWED_HOSTS=z08kw8kg0sw0sckss88cg00g.62.171.144.14.sslip.io
 allowed_hosts_from_env = config('ALLOWED_HOSTS', default='').split(',')
 # Default hosts for local dev and internal container networking
 default_hosts = [
@@ -39,10 +39,11 @@ default_hosts = [
 # Combine all hosts and filter empty strings
 ALLOWED_HOSTS = [host.strip() for host in allowed_hosts_from_env + default_hosts if host.strip()]
 
-# CSRF Trusted Origins — agrega aquí tu dominio de Coolify y frontend
+# CSRF Trusted Origins — dominio de Coolify y frontend
 CSRF_TRUSTED_ORIGINS = [
-    # Producción Coolify (ajusta al dominio real que te asigne Coolify)
-    'https://backend-condo.tu-dominio.coolify.io',
+    # Producción Coolify
+    'http://z08kw8kg0sw0sckss88cg00g.62.171.144.14.sslip.io',
+    'https://z08kw8kg0sw0sckss88cg00g.62.171.144.14.sslip.io',
     # Frontend
     'https://frontend-condo.vercel.app',
     'https://frontend-condo-kyhyfxk53-josue-covarrubias-projects.vercel.app',
