@@ -182,11 +182,12 @@ AUTH_USER_MODEL = 'users.User'
 GOOGLE_CLOUD_CREDENTIALS_JSON = config('GOOGLE_CLOUD_CREDENTIALS_JSON', default=None)
 GOOGLE_CLOUD_CREDENTIALS_PATH = BASE_DIR / 'google-credentials.json'
 
-# AWS Rekognition Configuration
+# AWS Configuration
 AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID', default=None)
 AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY', default=None)
 AWS_DEFAULT_REGION = config('AWS_DEFAULT_REGION', default='us-east-1')
 AWS_REKOGNITION_COLLECTION_ID = config('AWS_REKOGNITION_COLLECTION_ID', default='smart-condominium-faces')
+AWS_S3_BUCKET_NAME = config('AWS_S3_BUCKET_NAME', default='si2-examen-parcial')
 
 # Firebase Configuration
 FIREBASE_PROJECT_ID = config('FIREBASE_PROJECT_ID', default='smart-condominium-d84b9')

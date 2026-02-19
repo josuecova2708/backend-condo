@@ -8,8 +8,13 @@ from rest_framework.permissions import IsAuthenticated
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from django.conf import settings
+import boto3
+from botocore.exceptions import ClientError
 
-from .models import Vehicle, VehicleAccessLog, VehicleOCRTrainingData, PersonProfile, FacialAccessLog
+from .models import (
+    Vehicle, VehicleAccessLog, VehicleOCRTrainingData, PersonProfile, FacialAccessLog,
+    TipoActividad, AnalisisVideo, DeteccionActividad
+)
 from .serializers import (
     VehicleSerializer,
     VehicleAccessLogSerializer,
@@ -19,10 +24,17 @@ from .serializers import (
     PersonProfileSerializer,
     FacialAccessLogSerializer,
     FacialRecognitionRequestSerializer,
-    PersonRegistrationSerializer
+    PersonRegistrationSerializer,
+    TipoActividadSerializer,
+    AnalisisVideoSerializer,
+    DeteccionActividadSerializer,
+    IniciarAnalisisSerializer,
+    EstadisticasAnalisisSerializer
 )
 from .services.vehicle_ocr import VehicleOCRService
 from .services.aws_facial_recognition import AWSFacialRecognitionService
+from .services.video_analysis import VideoAnalysisService
+from .views_actividadsospechosa import ActividadSospechosaViewSet
 
 
 class VehicleViewSet(viewsets.ModelViewSet):
@@ -610,3 +622,216 @@ class FacialRecognitionViewSet(viewsets.GenericViewSet):
                 'Logs de acceso detallados'
             ]
         })
+
+
+class CameraViewSet(viewsets.ViewSet):
+    """
+    ViewSet para gestión de cámaras y videos desde S3.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get_s3_client(self):
+        """
+        Crear cliente S3 configurado.
+        """
+        return boto3.client(
+            's3',
+            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+            region_name=settings.AWS_DEFAULT_REGION
+        )
+
+    @action(detail=False, methods=['get'])
+    def list_cameras(self, request):
+        """
+        Listar las cámaras disponibles.
+        """
+        try:
+            cameras = [
+                {
+                    'id': 'camara1',
+                    'name': 'Cámara 1',
+                    'description': 'Cámara de entrada principal',
+                    'location': 'Entrada Principal'
+                },
+                {
+                    'id': 'camara2',
+                    'name': 'Cámara 2',
+                    'description': 'Cámara de garaje',
+                    'location': 'Garaje'
+                },
+                {
+                    'id': 'camara3',
+                    'name': 'Cámara 3',
+                    'description': 'Cámara de área común',
+                    'location': 'Área Común'
+                }
+            ]
+
+            return Response({
+                'success': True,
+                'cameras': cameras
+            })
+
+        except Exception as e:
+            return Response(
+                {
+                    'success': False,
+                    'error': str(e)
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=False, methods=['get'])
+    def list_videos(self, request):
+        """
+        Listar videos de una cámara específica desde S3.
+        """
+        try:
+            camera_id = request.query_params.get('camera_id')
+            if not camera_id:
+                return Response(
+                    {
+                        'success': False,
+                        'error': 'camera_id es requerido'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Validar que la cámara existe
+            valid_cameras = ['camara1', 'camara2', 'camara3']
+            if camera_id not in valid_cameras:
+                return Response(
+                    {
+                        'success': False,
+                        'error': f'Cámara inválida. Debe ser una de: {valid_cameras}'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            s3_client = self.get_s3_client()
+            bucket_name = settings.AWS_S3_BUCKET_NAME
+            prefix = f"{camera_id}/"
+
+            # Listar objetos en la carpeta de la cámara
+            response = s3_client.list_objects_v2(
+                Bucket=bucket_name,
+                Prefix=prefix
+            )
+
+            videos = []
+            if 'Contents' in response:
+                for obj in response['Contents']:
+                    key = obj['Key']
+
+                    # Solo incluir archivos de video (no carpetas vacías)
+                    if key != prefix and (key.endswith('.mp4') or key.endswith('.avi') or key.endswith('.mov')):
+                        # Generar URL firmada válida por 1 hora
+                        try:
+                            presigned_url = s3_client.generate_presigned_url(
+                                'get_object',
+                                Params={'Bucket': bucket_name, 'Key': key},
+                                ExpiresIn=3600  # 1 hora
+                            )
+
+                            videos.append({
+                                'key': key,
+                                'name': key.split('/')[-1],  # Solo el nombre del archivo
+                                'size': obj['Size'],
+                                'last_modified': obj['LastModified'].isoformat(),
+                                'url': presigned_url
+                            })
+                        except ClientError as e:
+                            print(f"Error generando URL para {key}: {e}")
+
+            return Response({
+                'success': True,
+                'camera_id': camera_id,
+                'videos': videos,
+                'count': len(videos)
+            })
+
+        except ClientError as e:
+            return Response(
+                {
+                    'success': False,
+                    'error': f'Error de AWS S3: {str(e)}'
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        except Exception as e:
+            return Response(
+                {
+                    'success': False,
+                    'error': str(e)
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=False, methods=['get'])
+    def get_video_url(self, request):
+        """
+        Obtener URL firmada para un video específico.
+        """
+        try:
+            camera_id = request.query_params.get('camera_id')
+            video_name = request.query_params.get('video_name')
+
+            if not camera_id or not video_name:
+                return Response(
+                    {
+                        'success': False,
+                        'error': 'camera_id y video_name son requeridos'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            s3_client = self.get_s3_client()
+            bucket_name = settings.AWS_S3_BUCKET_NAME
+            key = f"{camera_id}/{video_name}"
+
+            # Verificar que el archivo existe
+            try:
+                s3_client.head_object(Bucket=bucket_name, Key=key)
+            except ClientError as e:
+                if e.response['Error']['Code'] == '404':
+                    return Response(
+                        {
+                            'success': False,
+                            'error': 'Video no encontrado'
+                        },
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+                raise
+
+            # Generar URL firmada válida por 1 hora
+            presigned_url = s3_client.generate_presigned_url(
+                'get_object',
+                Params={'Bucket': bucket_name, 'Key': key},
+                ExpiresIn=3600
+            )
+
+            return Response({
+                'success': True,
+                'camera_id': camera_id,
+                'video_name': video_name,
+                'url': presigned_url,
+                'expires_in': 3600
+            })
+
+        except ClientError as e:
+            return Response(
+                {
+                    'success': False,
+                    'error': f'Error de AWS S3: {str(e)}'
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        except Exception as e:
+            return Response(
+                {
+                    'success': False,
+                    'error': str(e)
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
