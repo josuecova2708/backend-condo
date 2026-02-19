@@ -33,7 +33,7 @@ pidfile = None
 user = None
 group = None
 
-# SSL (Railway handles this)
+# SSL is handled by the reverse proxy (Coolify/Railway/Nginx), not gunicorn
 keyfile = None
 certfile = None
 

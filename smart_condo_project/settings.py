@@ -28,25 +28,25 @@ SECRET_KEY = config('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=False, cast=bool)
 
-# Parse ALLOWED_HOSTS from environment
+# Parse ALLOWED_HOSTS from environment variable (comma-separated)
+# En Coolify agrega tu dominio aquí: ALLOWED_HOSTS=tu-dominio.coolify.io
 allowed_hosts_from_env = config('ALLOWED_HOSTS', default='').split(',')
-# Railway health check and internal hosts
-railway_hosts = [
-    'healthcheck.railway.app',
-    '*.railway.app',
-    'backend-condo.railway.internal',
-    '*.railway.internal',
+# Default hosts for local dev and internal container networking
+default_hosts = [
     '127.0.0.1',
-    'localhost'
+    'localhost',
 ]
 # Combine all hosts and filter empty strings
-ALLOWED_HOSTS = [host.strip() for host in allowed_hosts_from_env + railway_hosts if host.strip()]
+ALLOWED_HOSTS = [host.strip() for host in allowed_hosts_from_env + default_hosts if host.strip()]
 
-# CSRF Trusted Origins for Railway/Vercel (CRÍTICO)
+# CSRF Trusted Origins — agrega aquí tu dominio de Coolify y frontend
 CSRF_TRUSTED_ORIGINS = [
-    'https://backend-condo-production.up.railway.app',
+    # Producción Coolify (ajusta al dominio real que te asigne Coolify)
+    'https://backend-condo.tu-dominio.coolify.io',
+    # Frontend
     'https://frontend-condo.vercel.app',
     'https://frontend-condo-kyhyfxk53-josue-covarrubias-projects.vercel.app',
+    # Desarrollo local
     'http://localhost:3000',
     'http://127.0.0.1:3000',
     'http://localhost:61101',
@@ -125,7 +125,7 @@ DATABASES = {
     'default': dj_database_url.config(
         default=config('DATABASE_URL', default='sqlite:///db.sqlite3'),
         conn_max_age=600,
-        ssl_require=True
+        ssl_require=config('DB_SSL_REQUIRE', default=False, cast=bool)
     )
 }
 

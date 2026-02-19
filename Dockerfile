@@ -36,14 +36,14 @@ RUN pip install --no-cache-dir opencv-python-headless==4.8.1.78 \
 # Copy project
 COPY . .
 
-# Create staticfiles directory
-RUN mkdir -p staticfiles
+# Create staticfiles and media directories
+RUN mkdir -p staticfiles media
 
 # Make start script executable
 RUN chmod +x start.sh
 
-# Expose port (Railway will override this with $PORT)
-EXPOSE $PORT
+# Expose port 8000 (Coolify routes traffic to this port)
+EXPOSE 8000
 
 # Use start script
 CMD ["./start.sh"]
