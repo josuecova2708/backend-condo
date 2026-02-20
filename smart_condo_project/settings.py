@@ -41,10 +41,13 @@ ALLOWED_HOSTS = [host.strip() for host in allowed_hosts_from_env + default_hosts
 
 # CSRF Trusted Origins — dominio de Coolify y frontend
 CSRF_TRUSTED_ORIGINS = [
-    # Producción Coolify
+    # Producción Coolify — backend
     'http://z08kw8kg0sw0sckss88cg00g.62.171.144.14.sslip.io',
     'https://z08kw8kg0sw0sckss88cg00g.62.171.144.14.sslip.io',
-    # Frontend
+    # Producción Coolify — frontend
+    'http://ik4kwck84wwos4ck0844g4cs.62.171.144.14.sslip.io',
+    'https://ik4kwck84wwos4ck0844g4cs.62.171.144.14.sslip.io',
+    # Frontend Vercel (legacy)
     'https://frontend-condo.vercel.app',
     'https://frontend-condo-kyhyfxk53-josue-covarrubias-projects.vercel.app',
     # Desarrollo local
@@ -251,7 +254,10 @@ CORS_ALLOW_ALL_ORIGINS = False  # Siempre False en producción
 
 # Origins específicos permitidos
 CORS_ALLOWED_ORIGINS = [
-    # Production
+    # Production Coolify
+    'http://ik4kwck84wwos4ck0844g4cs.62.171.144.14.sslip.io',
+    'https://ik4kwck84wwos4ck0844g4cs.62.171.144.14.sslip.io',
+    # Production Vercel (legacy)
     'https://frontend-condo.vercel.app',
     'https://frontend-condo-kyhyfxk53-josue-covarrubias-projects.vercel.app',
     # Development
