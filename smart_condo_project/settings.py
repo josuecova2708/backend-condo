@@ -249,8 +249,8 @@ SIMPLE_JWT = {
 # CORS CONFIGURATION OPTIMIZADA PARA RAILWAY + VERCEL
 # =============================================================================
 
-# En producción, usar lista específica de origins (más seguro que CORS_ALLOW_ALL_ORIGINS)
-CORS_ALLOW_ALL_ORIGINS = False  # Siempre False en producción
+# En producción False; en DEBUG True para facilitar diagnóstico
+CORS_ALLOW_ALL_ORIGINS = DEBUG
 
 # Origins específicos permitidos
 CORS_ALLOWED_ORIGINS = [
@@ -269,8 +269,9 @@ CORS_ALLOWED_ORIGINS = [
     'http://127.0.0.1:61101',
 ]
 
-# Regex patterns para preview deployments de Vercel
+# Regex patterns para orígenes dinámicos
 CORS_ALLOWED_ORIGIN_REGEXES = [
+    r'^https?://.*\.sslip\.io$',            # Coolify sslip.io (http y https)
     r'^https://frontend-condo-.*\.vercel\.app$',  # Preview deployments
     r'^https://.*\.railway\.app$',
 ]
