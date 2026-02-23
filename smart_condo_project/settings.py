@@ -29,7 +29,7 @@ SECRET_KEY = config('SECRET_KEY')
 DEBUG = config('DEBUG', default=False, cast=bool)
 
 # Parse ALLOWED_HOSTS from environment variable (comma-separated)
-# En Coolify agrega: ALLOWED_HOSTS=z08kw8kg0sw0sckss88cg00g.62.171.144.14.sslip.io
+# En Coolify agrega: ALLOWED_HOSTS=condo-back-uagrm.duckdns.org
 allowed_hosts_from_env = config('ALLOWED_HOSTS', default='').split(',')
 # Default hosts for local dev and internal container networking
 default_hosts = [
@@ -44,11 +44,6 @@ CSRF_TRUSTED_ORIGINS = [
     # Producción Coolify — backend
     'https://condo-back-uagrm.duckdns.org',
     'https://condo-smart-uagrm.duckdns.org',
-    'http://z08kw8kg0sw0sckss88cg00g.62.171.144.14.sslip.io',
-    'https://z08kw8kg0sw0sckss88cg00g.62.171.144.14.sslip.io',
-    # Producción Coolify — frontend
-    'http://ik4kwck84wwos4ck0844g4cs.62.171.144.14.sslip.io',
-    'https://ik4kwck84wwos4ck0844g4cs.62.171.144.14.sslip.io',
     # Frontend Vercel (legacy)
     'https://frontend-condo.vercel.app',
     'https://frontend-condo-kyhyfxk53-josue-covarrubias-projects.vercel.app',
@@ -251,14 +246,14 @@ SIMPLE_JWT = {
 # CORS CONFIGURATION OPTIMIZADA PARA RAILWAY + VERCEL
 # =============================================================================
 
-# En producción False; en DEBUG True para facilitar diagnóstico
-CORS_ALLOW_ALL_ORIGINS = DEBUG
+# Controlado por variable de entorno (útil para diagnóstico en Coolify)
+# Poner CORS_ALLOW_ALL_ORIGINS=True en Coolify para probar, luego quitar
+CORS_ALLOW_ALL_ORIGINS = config('CORS_ALLOW_ALL_ORIGINS', default=False, cast=bool)
 
 # Origins específicos permitidos
 CORS_ALLOWED_ORIGINS = [
-    # Production Coolify
-    'http://ik4kwck84wwos4ck0844g4cs.62.171.144.14.sslip.io',
-    'https://ik4kwck84wwos4ck0844g4cs.62.171.144.14.sslip.io',
+    # Producción — frontend
+    'https://condo-smart-uagrm.duckdns.org',
     # Production Vercel (legacy)
     'https://frontend-condo.vercel.app',
     'https://frontend-condo-kyhyfxk53-josue-covarrubias-projects.vercel.app',
