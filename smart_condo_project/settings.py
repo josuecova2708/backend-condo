@@ -42,6 +42,8 @@ ALLOWED_HOSTS = [host.strip() for host in allowed_hosts_from_env + default_hosts
 # CSRF Trusted Origins — dominio de Coolify y frontend
 CSRF_TRUSTED_ORIGINS = [
     # Producción Coolify — backend
+    'https://condo-back-uagrm.duckdns.org',
+    'https://condo-smart-uagrm.duckdns.org',
     'http://z08kw8kg0sw0sckss88cg00g.62.171.144.14.sslip.io',
     'https://z08kw8kg0sw0sckss88cg00g.62.171.144.14.sslip.io',
     # Producción Coolify — frontend
